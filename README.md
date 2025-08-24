@@ -1,5 +1,5 @@
 # 🛢️ Software Requirements Specification (SRS)
-## **Intelligent Formation Integrity & Damage Prevention System (FIDPS)**
+## **Intelligent Formation Integrity & Damage Prevention System (FIDPS): An Integrated AI & Dynamic Simulation Approach for Prediction and Mitigation"**
 
 **Version:** 1.1
 **Date:** October 26, 2023
