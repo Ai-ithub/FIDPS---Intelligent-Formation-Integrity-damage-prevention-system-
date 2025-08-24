@@ -114,52 +114,237 @@ The system shall detect, classify, and analyze the following formation damage ty
 | **NFR-6** | **Maintainability** | The codebase must be modular, well-documented, and accompanied by a CI/CD pipeline. |
 | **NFR-7** | **Usability** | The dashboard must be intuitive and require less than 2 hours of training for a field engineer to use effectively. |
 
----
 
-## 6. System Architecture & Data
+## 6. System Architecture & Data Flow
 
-### 6.1 High-Level Architecture
+### 6.1 High-Level Data Flow Architecture
+The following schematic illustrates the end-to-end data pipeline from acquisition to insight:
+
+```mermaid
+flowchart TD
+    subgraph A [Data Acquisition Layer]
+        direction LR
+        A1[MWD/LWD Sensors<br>Real-time Streams]
+        A2[Historical Databases<br>PI/SCADA Historians]
+        A3[Lab Data & Well Reports<br>Batch Files]
+    end
+
+    subgraph B [Ingestion & Buffer Layer]
+        B1[Kafka Cluster<br>Real-time Topic Streams]
+    end
+
+    A -- WITSML/OPC-UA/ODBC --> B
+
+    subgraph C [Data Processing & Validation Layer]
+        C1[Stream Processor<br>Flink/Spark]
+        C2[Validation Microservice<br>FastAPI]
+        C3[Data Quality Engine<br>Anomaly Detection]
+    end
+
+    B --> C
+
+    subgraph D [Storage Layer]
+        D1[Raw Data Lake<br>Parquet on S3]
+        D2[Operational Store<br>PostgreSQL]
+        D3[Document Store<br>MongoDB]
+    end
+
+    C -- Validated Data --> D2
+    C -- Anomaly Logs --> D3
+    C -- Raw Archive --> D1
+
+    subgraph E [Analytics & Intelligence Layer]
+        E1[ML Feature Store]
+        E2[Model Serving<br>XGBoost, TensorFlow]
+        E3[Simulation Service<br>OpenFOAM]
+    end
+
+    D2 -- Clean Data --> E
+
+    subgraph F [Services & API Layer]
+        F1[Prediction API<br>FastAPI]
+        F2[Alerting Service]
+        F3[Report Generation]
+    end
+
+    E --> F
+
+    subgraph G [Presentation Layer]
+        G1[React.js Dashboard]
+        G2[Real-time Visualization]
+        G3[Mobile Interface]
+    end
+
+    F --> G
+
+    subgraph H [Orchestration & Management]
+        H1[Kubernetes]
+        H2[CI/CD Pipeline]
+        H3[Monitoring: Prometheus/Grafana]
+    end
+
+    H -- Orchestrates --> B
+    H -- Orchestrates --> C
+    H -- Orchestrates --> E
+    H -- Orchestrates --> F
 ```
-[Data Sources: Sensors, Historians] 
-    → [Kafka Stream] 
-    → [Data Validation Microservice (FR-1)] 
-    → [Clean Data Storage (PostgreSQL)]
-        → [ML Prediction Microservice (FR-2)]
-        → [Simulation Service (FR-3)]
-    → [Dashboard Backend (FastAPI)]
-        → [React.js Frontend (FR-4, FR-5)]
-    → [Data Lakes (MongoDB, Cloud Storage)]
+
+### 6.2 Data Schema (Enhanced)
+The system utilizes a structured schema across multiple storage technologies:
+
+**PostgreSQL (Operational Data Store)**
+```sql
+CREATE TABLE well_measurements (
+    measurement_id UUID PRIMARY KEY,
+    well_id VARCHAR(50) NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    depth DECIMAL(10, 2),
+    mud_type VARCHAR(20),
+    rpm INTEGER,
+    spp DECIMAL(10, 2),
+    flow_rate DECIMAL(10, 2),
+    viscosity DECIMAL(10, 2),
+    temperature DECIMAL(10, 2),
+    ecd DECIMAL(10, 2),
+    shale_content DECIMAL(5, 2),
+    lithology VARCHAR(50),
+    ph DECIMAL(4, 2),
+    cl_concentration DECIMAL(10, 2),
+    oil_water_ratio DECIMAL(5, 2),
+    is_anomaly BOOLEAN DEFAULT FALSE,
+    damage_type_prediction VARCHAR(50),
+    prediction_confidence DECIMAL(5, 4),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE damage_types (
+    damage_type_id VARCHAR(10) PRIMARY KEY,
+    damage_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    severity_level INTEGER,
+    common_causes TEXT[],
+    mitigation_strategies TEXT[]
+);
 ```
 
-### 6.2 Data Schema (Key Fields)
-The system will utilize a schema including, but not limited to, the following fields:
-`well_id, timestamp, depth, mud_type, rpm, spp, flow_rate, viscosity, temperature, ecd, shale_content, lithology, ph, cl_concentration, oil_water_ratio, damage_type_label`
+**MongoDB (Document Store for Anomalies & Events)**
+```json
+{
+  "event_id": "event_12345",
+  "well_id": "well_abc",
+  "timestamp": "2024-05-21T10:30:00Z",
+  "event_type": "data_validation_failure",
+  "severity": "high",
+  "description": "ECD value out of range: 3.5 sg",
+  "original_value": 3.5,
+  "expected_range": { "min": 0.8, "max": 2.5 },
+  "field_name": "ecd",
+  "processing_stage": "validation_microservice",
+  "suggested_action": "Check sensor calibration"
+}
+```
+
+### 6.3 Technology Stack (Enhanced)
+
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Data Acquisition** | WITSML, OPC-UA, ODBC | Standardized field data communication |
+| **Stream Processing** | Apache Kafka, Flink | Real-time data ingestion and processing |
+| **Data Validation** | FastAPI, Pandera, Great Expectations | Data quality and validation framework |
+| **Storage** | PostgreSQL, MongoDB, S3 (Parquet) | Operational, document, and data lake storage |
+| **Machine Learning** | XGBoost, TensorFlow, Scikit-learn | Model training and serving |
+| **Simulation** | OpenFOAM, FEniCS | Physics-based modeling |
+| **API & Services** | FastAPI, Redis | Microservices architecture |
+| **Frontend** | React.js, D3.js, Plotly | Interactive visualization |
+| **Monitoring** | Prometheus, Grafana, ELK Stack | System observability |
+| **Orchestration** | Kubernetes, Docker, Helm | Container orchestration |
+| **CI/CD** | GitLab CI, ArgoCD | Automated deployment pipeline |
+
+### 6.4 Data Flow Stages
+
+**Stage 1: Acquisition**
+- Real-time data ingested via WITSML/OPC-UA protocols at ≥1 Hz frequency
+- Historical data batched from PI/SCADA systems
+- Lab data imported via structured files (CSV, JSON)
+
+**Stage 2: Ingestion & Buffering**
+- Kafka topics provide durable buffering and backpressure handling
+- Schema registry ensures data consistency
+- Allows for multiple consumers of the same data streams
+
+**Stage 3: Validation & Processing**
+- Schema validation: Data type, format, and unit consistency
+- Domain validation: Physical range checks (e.g., 0.8 ≤ ECD ≤ 2.5 sg)
+- Statistical validation: outlier detection using moving averages
+- Data enrichment: addition of derived features and contextual information
+
+**Stage 4: Storage & Archiving**
+- Validated data stored in PostgreSQL for operational use
+- Anomalies and events logged to MongoDB for investigation
+- Raw data archived to S3 in Parquet format for compliance and reprocessing
+
+**Stage 5: Analytics & Intelligence**
+- Feature engineering creates ML-ready datasets
+- Model serving provides real-time predictions
+- Simulation service runs physics-based models for complex scenarios
+
+**Stage 6: Presentation & Action**
+- React dashboard provides real-time visualization
+- Alerting system triggers notifications for critical events
+- Reporting module generates operational insights
+
+### 6.5 Data Retention Policies
+
+| Data Type | Retention Period | Storage Tier | Purpose |
+| :--- | :--- | :--- | :--- |
+| Real-time operational data | 90 days | PostgreSQL (Hot) | Real-time monitoring and alerting |
+| Historical operational data | 5 years | PostgreSQL (Warm) | Trend analysis and reporting |
+| Anomaly and event data | 2 years | MongoDB | Audit and investigation |
+| Raw sensor data | 7 years | S3 Glacier (Cold) | Regulatory compliance |
+| ML training data | Indefinite | S3 Standard | Model retraining and improvement |
 
 ---
 
 ## 7. Appendices
 
-### 7.1 Setup Instructions
+### 7.1 Deployment Architecture
+
 ```bash
-git clone https://github.com/your-org/fidps.git
-cd fidps
-pip install -r requirements.txt
-# Run data generation
-python generate_synthetic_data.py
-# Start the backend API
-uvicorn dashboard.backend.app.main:app --reload
-# (Separate Terminal) Start the frontend
-cd dashboard/frontend && npm install && npm start
+# Production Deployment via Helm/Kubernetes
+helm install fidps-production ./charts/fidps \
+  --set global.env=production \
+  --set ingress.hostname=fidps.company.com \
+  --set database.postgresql.storage=1Ti \
+  --set kafka.brokers=5 \
+  --set ml.gpu.enabled=true
 ```
 
-### 7.2 Technology Stack
-| Layer | Technology |
-| :--- | :--- |
-| **Data/ML** | Python, Pandas, NumPy, Scikit-learn, XGBoost, TensorFlow, OpenFOAM |
-| **Backend** | FastAPI, Kafka, PostgreSQL, MongoDB |
-| **Frontend** | React.js, D3.js, Plotly, Grafana (for ops) |
-| **Infrastructure** | Docker, Kubernetes (future), AWS/GCP |
+### 7.2 Monitoring Setup
+
+```yaml
+# Sample Grafana Dashboard for Data Pipeline Health
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus-server:9090
+
+panels:
+  - title: Data Ingestion Rate
+    targets:
+      - expr: rate(kafka_topic_messages_total{topic="well-data"}[5m])
+        legendFormat: {{topic}}
+```
+
+### 7.3 Disaster Recovery Strategy
+
+- **Multi-AZ Deployment:** Critical services deployed across availability zones
+- **Backup Policy:** Daily snapshots of operational databases
+- **Replication:** Cross-region replication of data lake storage
+- **Recovery Time Objective (RTO):** < 4 hours for critical services
+- **Recovery Point Objective (RPO):** < 15 minutes of data loss
 
 ---
-<br>
 
+This enhanced architecture provides a robust, scalable foundation for the FIDPS platform, ensuring reliable data flow from acquisition to actionable insights while maintaining data quality and system reliability.
