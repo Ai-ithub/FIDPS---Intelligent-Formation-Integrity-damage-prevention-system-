@@ -1,6 +1,6 @@
 # 🛢️ Software Requirements Specification (SRS)
-## **Intelligent Formation Integrity & Damage Prevention System (FIDPS): An Integrated AI & Dynamic Simulation Approach for Prediction and Mitigation"**
-+ 🚀 FIDPS MVP Roadmap: Phased Development Strategy
+## **Intelligent Formation Integrity & Damage Prevention System (FIDPS): An Integrated AI & Dynamic Simulation Approach for Prediction and Mitigation + 🚀 FIDPS MVP Roadmap: Phased Development Strategy"**
+
 **Version:** 1.1
 **Date:** October 26, 2023
 **Status:** Draft for Review
