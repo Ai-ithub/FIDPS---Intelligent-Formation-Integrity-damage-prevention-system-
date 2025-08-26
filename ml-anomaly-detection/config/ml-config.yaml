@@ -1,0 +1,443 @@
+# FIDPS Machine Learning Configuration
+# Configuration for ML-based anomaly detection service
+
+# Kafka Configuration
+kafka:
+  bootstrap_servers: "kafka:9092"
+  consumer_group_id: "fidps-ml-service"
+  auto_offset_reset: "latest"
+  enable_auto_commit: true
+  auto_commit_interval_ms: 5000
+  session_timeout_ms: 30000
+  heartbeat_interval_ms: 3000
+  max_poll_records: 100
+  max_poll_interval_ms: 300000
+  
+  # Input Topics (consume from)
+  input_topics:
+    - "mwd-lwd-data"
+    - "csv-mwd-lwd-data"
+    - "witsml-data"
+    - "data-validation-results"  # Use validation results as additional input
+  
+  # Output Topics (produce to)
+  output_topics:
+    anomalies: "ml-anomalies"
+    predictions: "ml-predictions"
+    alerts: "ml-alerts"
+    model_metrics: "ml-model-metrics"
+    training_status: "ml-training-status"
+
+# Database Configuration
+databases:
+  postgres:
+    host: "postgres"
+    port: 5432
+    database: "fidps_operational"
+    username: "fidps_user"
+    password: "fidps_password"
+    connection_pool_size: 10
+    connection_timeout: 30
+    query_timeout: 60
+    
+  mongodb:
+    url: "mongodb://fidps_admin:fidps_mongo_password@mongo:27017/fidps_anomalies?authSource=admin"
+    database: "fidps_anomalies"
+    connection_pool_size: 10
+    connection_timeout: 30000
+    socket_timeout: 30000
+    
+  redis:
+    host: "redis"
+    port: 6379
+    db: 0
+    password: "fidps_redis_password"
+    connection_pool_size: 10
+    connection_timeout: 5
+    socket_timeout: 5
+
+# Machine Learning Configuration
+ml:
+  # Model Selection
+  model_type: "ensemble"  # Options: ensemble, isolation_forest, lstm, one_class_svm
+  
+  # Training Configuration
+  training:
+    retrain_interval_hours: 24
+    min_training_samples: 1000
+    max_training_samples: 50000
+    validation_split: 0.2
+    cross_validation_folds: 5
+    
+    # Auto-retraining triggers
+    auto_retrain:
+      enabled: true
+      performance_threshold: 0.8  # Retrain if performance drops below this
+      data_drift_threshold: 0.1   # Retrain if data drift exceeds this
+      time_based: true            # Retrain based on time interval
+      performance_based: true     # Retrain based on performance degradation
+  
+  # Data Processing
+  data_processing:
+    buffer_size: 1000
+    batch_size: 100
+    max_batch_wait_seconds: 300  # Process partial batch after this time
+    feature_selection: true
+    feature_scaling: "standard"  # Options: standard, robust, minmax, none
+    handle_missing_values: "interpolate"  # Options: drop, interpolate, forward_fill, mean
+    outlier_removal: true
+    outlier_threshold: 3.0  # Standard deviations
+  
+  # Model-specific Configuration
+  models:
+    isolation_forest:
+      contamination: 0.1
+      n_estimators: 100
+      max_samples: "auto"
+      max_features: 1.0
+      bootstrap: false
+      random_state: 42
+      
+    lstm:
+      sequence_length: 50
+      encoding_dim: 32
+      epochs: 100
+      batch_size: 32
+      learning_rate: 0.001
+      dropout_rate: 0.2
+      early_stopping_patience: 10
+      reduce_lr_patience: 5
+      
+    one_class_svm:
+      kernel: "rbf"
+      gamma: "scale"
+      nu: 0.1
+      degree: 3
+      coef0: 0.0
+      
+    ensemble:
+      models:
+        - "isolation_forest"
+        - "lstm"
+        - "one_class_svm"
+      weights:
+        isolation_forest: 0.4
+        lstm: 0.4
+        one_class_svm: 0.2
+      voting_strategy: "weighted"  # Options: majority, weighted, unanimous
+      confidence_threshold: 0.6
+
+# Anomaly Detection Configuration
+anomaly_detection:
+  # Anomaly Types and Their Configurations
+  anomaly_types:
+    equipment_failure:
+      enabled: true
+      severity_thresholds:
+        low: 0.3
+        medium: 0.5
+        high: 0.7
+        critical: 0.9
+      features:
+        - "hook_load"
+        - "weight_on_bit"
+        - "torque"
+        - "rpm"
+        - "vibration"
+      
+    formation_damage:
+      enabled: true
+      severity_thresholds:
+        low: 0.2
+        medium: 0.4
+        high: 0.6
+        critical: 0.8
+      features:
+        - "gamma_ray"
+        - "resistivity"
+        - "neutron_porosity"
+        - "bulk_density"
+        - "caliper"
+      
+    drilling_dysfunction:
+      enabled: true
+      severity_thresholds:
+        low: 0.25
+        medium: 0.45
+        high: 0.65
+        critical: 0.85
+      features:
+        - "rop"
+        - "mse"
+        - "standpipe_pressure"
+        - "flow_rate"
+        - "mud_weight"
+      
+    wellbore_instability:
+      enabled: true
+      severity_thresholds:
+        low: 0.3
+        medium: 0.5
+        high: 0.7
+        critical: 0.9
+      features:
+        - "caliper"
+        - "standpipe_pressure"
+        - "torque"
+        - "drag"
+      
+    fluid_loss:
+      enabled: true
+      severity_thresholds:
+        low: 0.2
+        medium: 0.4
+        high: 0.6
+        critical: 0.8
+      features:
+        - "flow_rate_in"
+        - "flow_rate_out"
+        - "pit_volume"
+        - "mud_weight"
+      
+    kick_detection:
+      enabled: true
+      severity_thresholds:
+        low: 0.4
+        medium: 0.6
+        high: 0.8
+        critical: 0.95
+      features:
+        - "pit_volume"
+        - "flow_rate_out"
+        - "standpipe_pressure"
+        - "gas_reading"
+  
+  # Global Detection Parameters
+  detection_parameters:
+    confidence_threshold: 0.5
+    min_anomaly_duration_seconds: 30
+    max_false_positive_rate: 0.05
+    suppression_window_seconds: 300  # Suppress duplicate alerts
+    
+  # Feature Engineering
+  feature_engineering:
+    statistical_features:
+      enabled: true
+      window_sizes: [10, 30, 60, 120]  # seconds
+      features:
+        - "mean"
+        - "std"
+        - "min"
+        - "max"
+        - "median"
+        - "skew"
+        - "kurtosis"
+    
+    temporal_features:
+      enabled: true
+      features:
+        - "trend"
+        - "seasonality"
+        - "autocorrelation"
+        - "change_points"
+    
+    domain_specific_features:
+      enabled: true
+      features:
+        - "mechanical_specific_energy"
+        - "hydraulic_power"
+        - "drilling_efficiency"
+        - "formation_evaluation_indices"
+
+# Alerting Configuration
+alerting:
+  # Alert Levels
+  alert_levels:
+    low:
+      enabled: true
+      destinations: ["kafka"]
+      throttle_minutes: 60
+    medium:
+      enabled: true
+      destinations: ["kafka", "database"]
+      throttle_minutes: 30
+    high:
+      enabled: true
+      destinations: ["kafka", "database", "webhook"]
+      throttle_minutes: 15
+    critical:
+      enabled: true
+      destinations: ["kafka", "database", "webhook", "email"]
+      throttle_minutes: 0  # No throttling for critical alerts
+  
+  # Alert Destinations
+  destinations:
+    webhook:
+      url: "http://api-gateway:8080/alerts/ml"
+      timeout_seconds: 10
+      retry_attempts: 3
+      
+    email:
+      enabled: false
+      smtp_server: "smtp.company.com"
+      smtp_port: 587
+      username: "alerts@company.com"
+      password: "password"
+      recipients:
+        - "drilling-team@company.com"
+        - "operations@company.com"
+      
+    slack:
+      enabled: false
+      webhook_url: "https://hooks.slack.com/services/..."
+      channel: "#drilling-alerts"
+
+# Performance and Monitoring
+performance:
+  # Processing Configuration
+  processing:
+    max_concurrent_batches: 4
+    batch_timeout_seconds: 30
+    memory_limit_mb: 4096
+    cpu_limit_cores: 4
+    
+  # Caching
+  caching:
+    model_cache_size: 100
+    feature_cache_size: 1000
+    prediction_cache_ttl_seconds: 300
+    
+  # Metrics Collection
+  metrics:
+    enabled: true
+    collection_interval_seconds: 30
+    retention_days: 30
+    
+    # Metrics to collect
+    collect:
+      - "processing_time"
+      - "prediction_accuracy"
+      - "false_positive_rate"
+      - "false_negative_rate"
+      - "model_confidence"
+      - "data_quality_score"
+      - "throughput"
+      - "memory_usage"
+      - "cpu_usage"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "json"  # json, text
+  
+  # Log Destinations
+  destinations:
+    console: true
+    file: true
+    kafka: true
+    elasticsearch: false
+  
+  # File Logging
+  file:
+    path: "/app/logs/ml-service.log"
+    max_size_mb: 100
+    max_files: 10
+    rotation: "daily"
+  
+  # Kafka Logging
+  kafka_logging:
+    topic: "system-logs"
+    level: "WARNING"  # Only log warnings and above to Kafka
+    
+  # Structured Logging Fields
+  structured_fields:
+    - "timestamp"
+    - "level"
+    - "service"
+    - "component"
+    - "well_id"
+    - "model_name"
+    - "processing_time"
+    - "error_code"
+
+# Health Checks
+health_checks:
+  enabled: true
+  interval_seconds: 30
+  timeout_seconds: 10
+  
+  # Services to check
+  services:
+    kafka:
+      enabled: true
+      check_type: "connection"
+      
+    postgres:
+      enabled: true
+      check_type: "query"
+      query: "SELECT 1"
+      
+    mongodb:
+      enabled: true
+      check_type: "ping"
+      
+    redis:
+      enabled: true
+      check_type: "ping"
+  
+  # Model health checks
+  models:
+    check_prediction_time: true
+    max_prediction_time_seconds: 5
+    check_memory_usage: true
+    max_memory_usage_mb: 2048
+
+# Development and Testing
+development:
+  debug_mode: false
+  mock_external_services: false
+  
+  # Testing Configuration
+  testing:
+    generate_synthetic_data: false
+    synthetic_data_rate: 10  # records per second
+    inject_anomalies: false
+    anomaly_injection_rate: 0.05  # 5% of data
+    
+  # Model Experimentation
+  experimentation:
+    enabled: false
+    a_b_testing: false
+    champion_challenger: false
+    experiment_duration_hours: 24
+    
+  # Data Collection for Model Improvement
+  data_collection:
+    collect_predictions: true
+    collect_features: true
+    collect_feedback: true
+    retention_days: 90
+
+# Security Configuration
+security:
+  # Authentication
+  authentication:
+    enabled: false
+    method: "api_key"  # api_key, oauth, jwt
+    
+  # Data Encryption
+  encryption:
+    encrypt_at_rest: false
+    encrypt_in_transit: true
+    
+  # Access Control
+  access_control:
+    enabled: false
+    role_based: false
+    
+  # Audit Logging
+  audit_logging:
+    enabled: true
+    log_predictions: true
+    log_model_changes: true
+    log_configuration_changes: true
