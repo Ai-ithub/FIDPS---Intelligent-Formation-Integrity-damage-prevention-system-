@@ -7,6 +7,8 @@ import random
 from enum import Enum
 import json
 
+output_path= './formation_damage_dataset'
+
 class DamageType(Enum):
     CLAY_IRON_CONTROL = "DT-01"
     DRILLING_INDUCED = "DT-02"
@@ -422,11 +424,11 @@ class LWD_MWD_DataGenerator:
         # Raw sensor data (Parquet for S3)
         raw_sensor_data = df[['timestamp', 'depth'] + list(self.param_ranges.keys())]
         raw_sensor_data['date'] = raw_sensor_data['timestamp'].dt.date
+        raw_sensor_data = df.loc[:, ~df.columns.duplicated()]
         table = pa.Table.from_pandas(raw_sensor_data)
         pq.write_to_dataset(
             table,
             root_path=f"{output_path}/raw_sensor_data",
-            partition_cols=['date'],
             compression='SNAPPY'
         )
         
