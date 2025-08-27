@@ -263,6 +263,23 @@ class LWD_MWD_DataGenerator:
             }
         
         return None
+    def generate_formation_data(self, depth):
+        """Generate a formation data with specific characteristics"""
+        if random.random() < 0.001: 
+            formation_data = random.choices(
+                list(self.damage_probabilities.keys()),
+                weights=list(self.damage_probabilities.values())
+            )[0]
+            
+           
+            return {
+                'formation_type': formation_data.value,
+                'formation_product_name': formation_data.name,
+                'depth_interval': (depth, depth + random.uniform(10, 100)),
+                'permeability_confidence': random.uniform(0, 1000)
+            }
+        
+        return None
     
     def generate_dataset(self, start_date, duration_days, output_path):
         """Generate the complete dataset with formation damage patterns"""
