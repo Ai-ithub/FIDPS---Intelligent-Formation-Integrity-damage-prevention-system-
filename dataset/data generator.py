@@ -360,6 +360,8 @@ class LWD_MWD_DataGenerator:
             
             data['data_quality_score'].append(random.uniform(0.85, 0.99))
             data['drilling_phase'].append(self.generate_drilling_phase(current_depth))
+            data['lithology'].append(retention_tier.value)
+            data['formation_type'].append(retention_tier.value)
             
             # Store damage event info
             if active_damage_event:
