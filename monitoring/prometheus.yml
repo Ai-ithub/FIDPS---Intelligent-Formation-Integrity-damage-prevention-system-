@@ -1,0 +1,150 @@
+# Prometheus configuration for FIDPS monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'fidps-local'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # Kafka metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # Kafka Connect metrics
+  - job_name: 'kafka-connect'
+    static_configs:
+      - targets: ['kafka-connect:8083']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # PostgreSQL metrics (using postgres_exporter)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # MongoDB metrics (using mongodb_exporter)
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # MinIO metrics
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    scrape_interval: 15s
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+
+  # Redis metrics (using redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Node exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Custom application metrics
+  - job_name: 'fidps-data-ingestion'
+    static_configs:
+      - targets: ['data-ingestion-service:8080']
+    scrape_interval: 10s
+    metrics_path: /actuator/prometheus
+    scrape_timeout: 10s
+
+  - job_name: 'fidps-ml-service'
+    static_configs:
+      - targets: ['ml-service:8081']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scrape_timeout: 15s
+
+  - job_name: 'fidps-simulation-service'
+    static_configs:
+      - targets: ['simulation-service:8082']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scrape_timeout: 15s
+
+  - job_name: 'fidps-api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+
+  # Kafka lag exporter for consumer lag monitoring
+  - job_name: 'kafka-lag-exporter'
+    static_configs:
+      - targets: ['kafka-lag-exporter:8000']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # JMX metrics for Java applications
+  - job_name: 'jmx-kafka'
+    static_configs:
+      - targets: ['kafka-jmx-exporter:5556']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  - job_name: 'jmx-kafka-connect'
+    static_configs:
+      - targets: ['kafka-connect-jmx-exporter:5557']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "http://thanos-receive:19291/api/v1/receive"
+#     queue_config:
+#       max_samples_per_send: 1000
+#       max_shards: 200
+#       capacity: 2500
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 15d
+    retention.size: 10GB
+    wal-compression: true
