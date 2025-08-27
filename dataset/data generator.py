@@ -246,6 +246,23 @@ class LWD_MWD_DataGenerator:
         else:
             # For operational data, split between real-time and historical
             return random.choice([DataRetentionTier.REAL_TIME, DataRetentionTier.HISTORICAL])
+        
+    def generate_drilling_phase(self, current_depth):
+        """Generate a formation drilling phase with specific characteristics"""
+        if random.random() < 50:  
+            drilling_type = random.choices(
+                list(self.damage_probabilities.keys()),
+                weights=list(self.damage_probabilities.values())
+            )[0]
+             
+            return {
+                'drilling_type': drilling_type.value,
+                'drilling_name': drilling_type.name,
+                'depth_interval': (current_depth, current_depth + random.uniform(10, 100)),
+                'pump_confidence': random.uniform(0, 5000)
+            }
+        
+        return None
     
     def generate_dataset(self, start_date, duration_days, output_path):
         """Generate the complete dataset with formation damage patterns"""
