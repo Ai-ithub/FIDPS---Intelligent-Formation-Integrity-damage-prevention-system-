@@ -1,0 +1,293 @@
+# FIDPS Data Validation Configuration
+# This file contains configuration for the data validation pipeline
+
+# Kafka Configuration
+kafka:
+  bootstrap_servers: "kafka:9092"
+  consumer_group_id: "fidps-validation-consumer"
+  auto_offset_reset: "latest"
+  enable_auto_commit: true
+  auto_commit_interval_ms: 1000
+  session_timeout_ms: 30000
+  heartbeat_interval_ms: 3000
+  max_poll_records: 500
+  max_poll_interval_ms: 300000
+  
+  # Input Topics
+  input_topics:
+    - "mwd-lwd-data"
+    - "csv-mwd-lwd-data"
+    - "witsml-data"
+  
+  # Output Topics
+  output_topics:
+    validation_results: "data-validation-results"
+    quality_metrics: "data-quality-metrics"
+    alerts: "validation-alerts"
+    errors: "validation-errors"
+
+# Database Configuration
+databases:
+  postgres:
+    url: "jdbc:postgresql://postgres:5432/fidps_operational"
+    username: "fidps_user"
+    password: "fidps_password"
+    driver: "org.postgresql.Driver"
+    connection_pool_size: 10
+    connection_timeout: 30000
+    idle_timeout: 600000
+    max_lifetime: 1800000
+  
+  mongodb:
+    url: "mongodb://fidps_admin:fidps_mongo_password@mongo:27017/fidps_anomalies?authSource=admin"
+    database: "fidps_anomalies"
+    connection_pool_size: 10
+    connection_timeout: 30000
+    socket_timeout: 30000
+  
+  redis:
+    url: "redis://redis:6379"
+    password: "fidps_redis_password"
+    database: 0
+    connection_pool_size: 10
+    connection_timeout: 5000
+    socket_timeout: 5000
+
+# Validation Rules Configuration
+validation_rules:
+  # Range validation for MWD/LWD parameters
+  range_validation:
+    depth:
+      min: 0
+      max: 15000  # meters
+      severity: "ERROR"
+    
+    hook_load:
+      min: 0
+      max: 1000000  # lbs
+      severity: "ERROR"
+    
+    weight_on_bit:
+      min: 0
+      max: 100000  # lbs
+      severity: "ERROR"
+    
+    torque:
+      min: 0
+      max: 50000  # ft-lbs
+      severity: "ERROR"
+    
+    rpm:
+      min: 0
+      max: 500  # revolutions per minute
+      severity: "ERROR"
+    
+    flow_rate:
+      min: 0
+      max: 2000  # gpm
+      severity: "ERROR"
+    
+    standpipe_pressure:
+      min: 0
+      max: 10000  # psi
+      severity: "ERROR"
+    
+    mud_weight:
+      min: 6
+      max: 25  # ppg
+      severity: "ERROR"
+    
+    temperature:
+      min: -50
+      max: 300  # celsius
+      severity: "WARNING"
+    
+    gamma_ray:
+      min: 0
+      max: 500  # API units
+      severity: "WARNING"
+    
+    resistivity:
+      min: 0.01
+      max: 10000  # ohm-m
+      severity: "WARNING"
+    
+    neutron_porosity:
+      min: 0
+      max: 100  # percentage
+      severity: "WARNING"
+    
+    bulk_density:
+      min: 1.0
+      max: 4.0  # g/cm3
+      severity: "WARNING"
+    
+    caliper:
+      min: 4
+      max: 20  # inches
+      severity: "WARNING"
+
+  # Null/Missing value validation
+  null_validation:
+    critical_fields:
+      - "timestamp"
+      - "well_id"
+      - "depth"
+    severity: "ERROR"
+    
+    important_fields:
+      - "hook_load"
+      - "weight_on_bit"
+      - "torque"
+      - "rpm"
+    severity: "WARNING"
+
+  # Data freshness validation
+  freshness_validation:
+    max_delay_seconds: 300  # 5 minutes
+    severity: "WARNING"
+    
+    critical_delay_seconds: 900  # 15 minutes
+    critical_severity: "ERROR"
+
+  # Consistency validation
+  consistency_validation:
+    depth_monotonic:
+      enabled: true
+      tolerance: 0.1  # meters
+      severity: "WARNING"
+    
+    timestamp_monotonic:
+      enabled: true
+      tolerance: 1  # seconds
+      severity: "ERROR"
+
+  # Format validation
+  format_validation:
+    well_id_pattern: "^[A-Z0-9]{2,20}$"
+    timestamp_format: "ISO8601"
+    numeric_precision: 6
+    severity: "WARNING"
+
+# Data Quality Metrics Configuration
+quality_metrics:
+  # Aggregation windows
+  windows:
+    short_term: 300  # 5 minutes
+    medium_term: 1800  # 30 minutes
+    long_term: 3600  # 1 hour
+  
+  # Thresholds for quality scores
+  thresholds:
+    excellent: 0.95
+    good: 0.85
+    fair: 0.70
+    poor: 0.50
+  
+  # Metrics to calculate
+  metrics:
+    - "completeness_ratio"
+    - "accuracy_ratio"
+    - "timeliness_ratio"
+    - "consistency_ratio"
+    - "validity_ratio"
+    - "uniqueness_ratio"
+
+# Alerting Configuration
+alerting:
+  # Alert thresholds
+  thresholds:
+    error_rate_threshold: 0.05  # 5%
+    warning_rate_threshold: 0.10  # 10%
+    data_loss_threshold: 0.02  # 2%
+    latency_threshold_ms: 5000  # 5 seconds
+  
+  # Alert destinations
+  destinations:
+    kafka_topic: "validation-alerts"
+    webhook_url: "http://api-gateway:8080/alerts/validation"
+    email_enabled: false
+    slack_enabled: false
+  
+  # Alert suppression
+  suppression:
+    duplicate_window_seconds: 300  # 5 minutes
+    max_alerts_per_minute: 10
+
+# Performance Configuration
+performance:
+  # Parallelism settings
+  parallelism:
+    default: 4
+    validation: 6
+    aggregation: 2
+  
+  # Buffer settings
+  buffer_size: 1000
+  batch_size: 100
+  flush_interval_ms: 5000
+  
+  # Memory settings
+  max_memory_mb: 2048
+  gc_cleanup_interval_ms: 30000
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "json"
+  
+  # Log destinations
+  destinations:
+    console: true
+    file: true
+    kafka: true
+  
+  # File logging
+  file_config:
+    path: "/opt/flink/app/logs/validation.log"
+    max_size_mb: 100
+    max_files: 10
+    rotation: "daily"
+  
+  # Kafka logging
+  kafka_config:
+    topic: "system-logs"
+    level: "WARN"
+
+# Monitoring Configuration
+monitoring:
+  # Metrics reporting
+  metrics:
+    enabled: true
+    interval_seconds: 30
+    
+    # Prometheus metrics
+    prometheus:
+      enabled: true
+      port: 9249
+      path: "/metrics"
+  
+  # Health checks
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 10
+    
+    # Dependencies to check
+    dependencies:
+      - "kafka"
+      - "postgres"
+      - "mongodb"
+      - "redis"
+
+# Development Configuration
+development:
+  debug_mode: false
+  sample_data_enabled: false
+  mock_external_services: false
+  
+  # Testing
+  testing:
+    generate_test_data: false
+    test_data_rate: 100  # records per second
+    test_duration_seconds: 300  # 5 minutes
