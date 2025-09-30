@@ -1,0 +1,7 @@
+{
+  "name": "WITSMLKafkaService",
+  "endpoint": "http://www.witsml.org/GetFromStore",
+  "token": "Content-Type:text/xml; charset=utf-8,SOAPAction:http://www.witsml.org/GetFromStore",
+  "topic": "witsml-stream",
+  "bootstrap_servers": "KAFKA:29092"
+}

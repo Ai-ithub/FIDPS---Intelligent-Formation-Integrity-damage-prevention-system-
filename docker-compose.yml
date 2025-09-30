@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+
+  # 🐘 Zookeeper: Coordination service for Kafka brokers
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181  # Default client port
+
+  # 🦉 Kafka Broker 1
+  kafka:
+    image: wurstmeister/kafka
+    depends_on:
+      - zookeeper  # Kafka requires Zookeeper to start
+    ports:
+      - "9092:9092"  # Kafka broker port
+      - "9999:9999"  # JMX monitoring port
+    environment:
+      kafka_BROKER_ID: 1  # Unique broker ID
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181  # Zookeeper connection string
+      KAFKA_ADVERTISED_HOST_NAME: kafka  # Hostname advertised to clients
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT1://KAFKA:29092  # Listener protocols
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT1://KAFKA:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT1:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT  # Protocol for broker-to-broker communication
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2  # Replication factor for internal topics
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'  # Automatically create topics when referenced
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_JMX_PORT: 9999  # JMX port for monitoring
+
+  # 🦉 Kafka Broker 2
+  kafka2:
+    image: wurstmeister/kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9092"  # Maps Kafka broker 2 to external port 9093
+    environment:
+      kafka_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_HOST_NAME: kafka2
+      KAFKA_LISTENERS: PLAINTEXT://kafka2:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2  # Higher replication for fault tolerance
+
+  # 📦 Schema Registry: Manages Avro schemas for Kafka messages
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"  # Schema Registry API port
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+
+  # 📊 Kafka UI: Web interface for managing Kafka clusters
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8282:8080"  # Web UI port
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+
+  # 📝 Custom Producer: Sends CSV data to Kafka topic
+  producer-topic-csv:
+    build: .  # Assumes Dockerfile in root directory
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_ACKS: all
+      KAFKA_RETRIES: 5
+      KAFKA_RETRY_BACKOFF_MS: 1000
+      KAFKA_BUFFER_MEMORY: 33554432
+      KAFKA_MAX_BLOCK_MS: 60000
+
+  producer-topic-serverjson-wistml:
+    build: ./server-json
+    depends_on:
+      - kafka  
+
+  # 📈 Kafka Exporter: Exposes Kafka metrics for Prometheus
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    ports:
+      - "9308:9308"  # Metrics endpoint
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_SERVER: kafka:9092
+
+  # 📊 Prometheus: Time-series database for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"  # Prometheus dashboard
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Custom config file
+
+  # 📉 Grafana: Visualization dashboard for Prometheus metrics
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"  # Grafana web UI
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin  # Default admin credentials
+      GF_SECURITY_ADMIN_PASSWORD: admin

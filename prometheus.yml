@@ -1,0 +1,9 @@
+# 🔧 Global settings for Prometheus
+global:
+  scrape_interval: 15s  # How often to scrape targets (every 15 seconds)
+
+# 📡 Define targets to scrape metrics from
+scrape_configs:
+  - job_name: 'kafka-exporter'  # Name of the job shown in Prometheus UI
+    static_configs:
+      - targets: ['kafka-exporter:9308']  # Address of Kafka Exporter container

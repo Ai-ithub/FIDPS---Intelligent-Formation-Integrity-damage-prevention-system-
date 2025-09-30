@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "SensorReading",
+  "namespace": "com.example.sensors",
+  "fields": [
+    { "name": "timestamp", "type": "string" },
+    { "name": "sensor_id", "type": "string" },
+    { "name": "temperature", "type": "float" },
+    { "name": "humidity", "type": "float" }
+  ]
+}
