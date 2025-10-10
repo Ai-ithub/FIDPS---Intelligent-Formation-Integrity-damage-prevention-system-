@@ -39,15 +39,8 @@ It satisfies **NFR-4** and **NFR-6** from the Software Requirements Specificatio
    ```
 
 4. **Import the Dashboard:**
-   - Log in to Grafana (default credentials: `admin` / `admin`).
+   - Log in to Grafana (default credentials: `admin` / `aRiejzrACo35ZkzPgJry5Qly74hWaHfN5Jv8lJcV`). **Change these credentials immediately after the first login.**
    - Navigate to **Dashboards → Import**.
    - Upload the provided `dashboard.json` file located in the same directory.
    - Click **Load**, then **Import** to make the dashboard visible.
 
-## File Structure
-```
-monitoring/
-├── setup.sh           # Automated setup script for Prometheus & Grafana
-├── dashboard.json     # Grafana dashboard configuration
-└── README.md          # This file
-```
