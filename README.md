@@ -51,12 +51,12 @@ To become the industry-standard platform for proactive formation damage manageme
 
 ## 3. Functional Requirements (FR)
 
-### **FR-1: Data Ingestion & Validation Pipeline** (MLOps)
+### **FR-1: Data Ingestion & Validation Pipeline** 
 - **FR-1.1:** The system shall ingest real-time data streams from MWD/LWD tools and historical databases.
 - **FR-1.2:** The system shall validate all incoming data against predefined domain rules (value ranges, null checks, unit consistency).
 - **FR-1.3:** The system shall tag and log anomalous records for review while routing clean data to downstream modules.
 
-### **FR-2: Machine Learning Core** (For me.)
+### **FR-2: Machine Learning Core**
 - **FR-2.1:** The system shall classify the type of formation damage (from the predefined list of 10 types) using ensemble models (XGBoost/LightGBM).
 - **FR-2.2:** The system shall predict continuous values (e.g., fluid loss volume) using regression models (XGBoost Regression, Polynomial Regression).
 - **FR-2.3:** The system shall forecast time-series-based risks (e.g., emulsion onset) using recurrent neural networks (LSTM/GRU).
