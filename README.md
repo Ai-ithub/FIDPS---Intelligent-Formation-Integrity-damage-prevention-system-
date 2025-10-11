@@ -51,7 +51,7 @@ To become the industry-standard platform for proactive formation damage manageme
 
 ## 3. Functional Requirements (FR)
 
-### **FR-1: Data Ingestion & Validation Pipeline**
+### **FR-1: Data Ingestion & Validation Pipeline** 
 - **FR-1.1:** The system shall ingest real-time data streams from MWD/LWD tools and historical databases.
 - **FR-1.2:** The system shall validate all incoming data against predefined domain rules (value ranges, null checks, unit consistency).
 - **FR-1.3:** The system shall tag and log anomalous records for review while routing clean data to downstream modules.
