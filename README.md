@@ -1,123 +1,147 @@
-🛢️ Software Requirements Specification (SRS)
-Intelligent Formation Integrity & Damage Prevention System (FIDPS): An Integrated AI, MLOps, & Dynamic Simulation Approach
-Version: 2.1 (Architecture & MLOps/DevOps Complete)
-Date: October 12, 2025
-Status: Final Draft
+I've integrated a detailed **System Architecture & Data Flow Diagram** and a separate, detailed **MLOps/DevOps Pipeline Diagram** into the SRS. The entire document, including the newly integrated MLOps and DevOps requirements, has been rewritten for completeness and clarity.
 
-1. Introduction
-1.1 Purpose
-This document specifies the requirements for the Intelligent Formation Integrity & Damage Prevention System (FIDPS), an integrated software platform for real-time formation damage prediction and mitigation. This version mandates the inclusion of MLOps and DevOps practices to ensure automated, reliable, and continuously evolving machine learning and simulation capabilities.
+-----
 
-1.2 System Scope
-FIDPS is an end-to-end platform spanning data acquisition, validation, automated ML/simulation processing, and interactive visualization. It is architected for scalability, operationalized via Infrastructure as Code (IaC), and maintained through Continuous Integration/Continuous Delivery (CI/CD) pipelines.
+# 🛢️ Software Requirements Specification (SRS)
 
-1.3 Definitions and Acronyms
-Term/Acronym	Description
-FIDPS	Formation Integrity & Damage Prevention System
-MWD/LWD	Measurement/Logging While Drilling
-CI/CD	Continuous Integration / Continuous Deployment
-MLOps	Machine Learning Operations (Lifecycle automation)
-IaC	Infrastructure as Code (e.g., Terraform, Helm)
-HPA	Horizontal Pod Autoscaler
-RTO/RPO	Recovery Time/Point Objective (Disaster Recovery)
-SHAP	SHapley Additive exPlanations (Model Interpretability)
+## **Intelligent Formation Integrity & Damage Prevention System (FIDPS): An Integrated AI, MLOps, & Dynamic Simulation Approach**
 
-Export to Sheets
-2. Overall Description
-2.1 Vision
+**Version:** 2.1 (Architecture & MLOps/DevOps Complete)
+**Date:** October 12, 2025
+**Status:** Final Draft
+
+-----
+
+## 1\. Introduction
+
+### 1.1 Purpose
+
+This document specifies the requirements for the **Intelligent Formation Integrity & Damage Prevention System (FIDPS)**, an integrated software platform for **real-time formation damage prediction and mitigation**. This version mandates the inclusion of **MLOps** and **DevOps** practices to ensure automated, reliable, and continuously evolving machine learning and simulation capabilities.
+
+### 1.2 System Scope
+
+FIDPS is an end-to-end platform spanning data acquisition, validation, automated ML/simulation processing, and interactive visualization. It is architected for scalability, operationalized via **Infrastructure as Code (IaC)**, and maintained through **Continuous Integration/Continuous Delivery (CI/CD)** pipelines.
+
+### 1.3 Definitions and Acronyms
+
+| Term/Acronym | Description |
+| :--- | :--- |
+| **FIDPS** | Formation Integrity & Damage Prevention System |
+| **MWD/LWD** | Measurement/Logging While Drilling |
+| **CI/CD** | Continuous Integration / Continuous Deployment |
+| **MLOps** | Machine Learning Operations (Lifecycle automation) |
+| **IaC** | Infrastructure as Code (e.g., Terraform, Helm) |
+| **HPA** | Horizontal Pod Autoscaler |
+| **RTO/RPO** | Recovery Time/Point Objective (Disaster Recovery) |
+| **SHAP** | SHapley Additive exPlanations (Model Interpretability) |
+
+-----
+
+## 2\. Overall Description
+
+### 2.1 Vision
+
 To establish FIDPS as the industry benchmark for proactive damage management by seamlessly integrating AI-driven insights with robust operational (DevOps) and ML lifecycle (MLOps) automation.
 
-2.2 Key Features
-Real-Time Streaming & Validation: High-throughput data ingestion via Kafka and validation as code (Great Expectations).
+### 2.2 Key Features
 
-Automated ML Engine: Full MLOps lifecycle supporting automated training, versioning (MLflow), and A/B testing.
+  - **Real-Time Streaming & Validation:** High-throughput data ingestion via Kafka and validation as code (Great Expectations).
+  - **Automated ML Engine:** Full MLOps lifecycle supporting automated training, versioning (MLflow), and A/B testing.
+  - **Dynamic Simulation:** GPU-accelerated, on-demand execution of physics-based models (OpenFOAM/FEniCS).
+  - **Full CI/CD & IaC:** Automated deployment and infrastructure provisioning using GitOps (ArgoCD) principles.
+  - **Model Observability:** Real-time monitoring of system health, data drift, and model drift (Prometheus/Grafana).
 
-Dynamic Simulation: GPU-accelerated, on-demand execution of physics-based models (OpenFOAM/FEniCS).
+### 2.3 Constraints
 
-Full CI/CD & IaC: Automated deployment and infrastructure provisioning using GitOps (ArgoCD) principles.
+  - Requires highly consistent and frequent ($\ge 1\text{ Hz}$) sensor data streams.
+  - Relies on **GPU-accelerated Kubernetes nodes** for training and simulation workloads.
+  - Must maintain data processing integrity during brief network interruptions.
 
-Model Observability: Real-time monitoring of system health, data drift, and model drift (Prometheus/Grafana).
+-----
 
-2.3 Constraints
-Requires highly consistent and frequent (≥1 Hz) sensor data streams.
+## 3\. Functional Requirements (FR)
 
-Relies on GPU-accelerated Kubernetes nodes for training and simulation workloads.
+### **FR-1: Data Ingestion & Validation**
 
-Must maintain data processing integrity during brief network interruptions.
+  - **FR-1.1:** The system shall ingest real-time data streams via WITSML/OPC-UA and historical data via ODBC/batch.
+  - **FR-1.2:** The system shall execute **data validation rules (e.g., range, completeness, schema)** against every incoming data batch.
+  - **FR-1.3:** The system shall route validated data to the feature store and log invalid data to an anomaly store.
 
-3. Functional Requirements (FR)
-FR-1: Data Ingestion & Validation
-FR-1.1: The system shall ingest real-time data streams via WITSML/OPC-UA and historical data via ODBC/batch.
+### **FR-2: Machine Learning Core (Model Traceability)**
 
-FR-1.2: The system shall execute data validation rules (e.g., range, completeness, schema) against every incoming data batch.
+  - **FR-2.1:** The system shall serve real-time predictions for **10 predefined damage types** (DT-01 to DT-10) using the **latest production-validated model version**.
+  - **FR-2.2:** The system shall support time-series forecasting (LSTM/GRU) for risk parameters (e.g., ECD surge).
+  - **FR-2.3:** All predictions stored in the operational database **must be traceable** to the exact ML model version used.
+  - **FR-2.4:** The system shall provide an API endpoint for users to retrieve **SHAP values** alongside predictions for interpretation.
 
-FR-1.3: The system shall route validated data to the feature store and log invalid data to an anomaly store.
+### **FR-3: Simulation Module**
 
-FR-2: Machine Learning Core (Model Traceability)
-FR-2.1: The system shall serve real-time predictions for 10 predefined damage types (DT-01 to DT-10) using the latest production-validated model version.
+  - **FR-3.1:** The system shall manage computational fluid dynamics (CFD) and finite element method (FEM) job execution on dedicated GPU resources.
+  - **FR-3.2:** The user shall be able to trigger a simulation by providing input parameters (e.g., mud rheology, rock properties) via the dashboard/API.
 
-FR-2.2: The system shall support time-series forecasting (LSTM/GRU) for risk parameters (e.g., ECD surge).
+### **FR-4: Dashboard & Visualization**
 
-FR-2.3: All predictions stored in the operational database must be traceable to the exact ML model version used.
+  - **FR-4.1:** The dashboard shall provide real-time, low-latency visualization of sensor data, predictions, and anomaly alerts.
+  - **FR-4.2:** The UI shall allow filtering and analysis based on **damage type, prediction confidence, and model version**.
+  - **FR-4.3:** The dashboard shall display current system health and **ML Model Drift status** derived from the monitoring services.
 
-FR-2.4: The system shall provide an API endpoint for users to retrieve SHAP values alongside predictions for interpretation.
+-----
 
-FR-3: Simulation Module
-FR-3.1: The system shall manage computational fluid dynamics (CFD) and finite element method (FEM) job execution on dedicated GPU resources.
+## 4\. MLOps & DevOps Requirements (MLOps/DR)
 
-FR-3.2: The user shall be able to trigger a simulation by providing input parameters (e.g., mud rheology, rock properties) via the dashboard/API.
+### **4.1 Continuous Integration & Continuous Delivery (CI/CD)**
 
-FR-4: Dashboard & Visualization
-FR-4.1: The dashboard shall provide real-time, low-latency visualization of sensor data, predictions, and anomaly alerts.
+| ID | Requirement | MLOps/DevOps Focus |
+| :--- | :--- | :--- |
+| **MLOps-1.1** | The CI pipeline must automatically build, containerize (Docker), and run all unit/integration tests ($\ge 90\%$ coverage) upon every code commit. | Automation, Testing |
+| **MLOps-1.2** | The CD pipeline (ArgoCD) must use a **GitOps approach** to deploy all microservices and infrastructure changes (Helm charts) to staging and production environments. | GitOps, Deployment |
+| **MLOps-1.3** | Deployments to production must require a successful staging test run and **manual approval (governance)**. | Governance, Quality Gate |
 
-FR-4.2: The UI shall allow filtering and analysis based on damage type, prediction confidence, and model version.
+### **4.2 ML Model Lifecycle Management**
 
-FR-4.3: The dashboard shall display current system health and ML Model Drift status derived from the monitoring services.
+| ID | Requirement | MLOps/DevOps Focus |
+| :--- | :--- | :--- |
+| **MLOps-2.1** | The training pipeline must use **MLflow** for tracking, versioning, and registering all model artifacts and metrics (R$^{2}$, RMSE). | Model Registry, Versioning |
+| **MLOps-2.2** | The system must enable **automated retraining** triggered by a **scheduled cron job** or a significant drop in production model accuracy/data drift alert. | Continuous Training (CT) |
+| **MLOps-2.3** | New models promoted to production must be deployed using **Canary Release or A/B testing strategies** before full traffic switch. | Safe Deployment |
 
-4. MLOps & DevOps Requirements (MLOps/DR)
-4.1 Continuous Integration & Continuous Delivery (CI/CD)
-ID	Requirement	MLOps/DevOps Focus
-MLOps-1.1	The CI pipeline must automatically build, containerize (Docker), and run all unit/integration tests (≥90% coverage) upon every code commit.	Automation, Testing
-MLOps-1.2	The CD pipeline (ArgoCD) must use a GitOps approach to deploy all microservices and infrastructure changes (Helm charts) to staging and production environments.	GitOps, Deployment
-MLOps-1.3	Deployments to production must require a successful staging test run and manual approval (governance).	Governance, Quality Gate
+### **4.3 Infrastructure as Code (IaC) & Scalability**
 
-Export to Sheets
-4.2 ML Model Lifecycle Management
-ID	Requirement	MLOps/DevOps Focus
-MLOps-2.1	The training pipeline must use MLflow for tracking, versioning, and registering all model artifacts and metrics (R$^{2}$, RMSE).	Model Registry, Versioning
-MLOps-2.2	The system must enable automated retraining triggered by a scheduled cron job or a significant drop in production model accuracy/data drift alert.	Continuous Training (CT)
-MLOps-2.3	New models promoted to production must be deployed using Canary Release or A/B testing strategies before full traffic switch.	Safe Deployment
+| ID | Requirement | MLOps/DevOps Focus |
+| :--- | :--- | :--- |
+| **MLOps-3.1** | All cloud infrastructure (Kubernetes, Databases, S3 buckets) must be provisioned and managed using **Terraform (IaC)**. | Automation, Standardization |
+| **MLOps-3.2** | The Model Serving API and Data Validation services shall implement **Horizontal Pod Autoscaling (HPA)** based on CPU utilization ($\ge 70\%$) and request queue depth. | Scalability |
+| **MLOps-3.3** | GPU nodes for the Simulation Service must be dynamically allocated/de-allocated based on the job queue to optimize cost. | Resource Optimization |
 
-Export to Sheets
-4.3 Infrastructure as Code (IaC) & Scalability
-ID	Requirement	MLOps/DevOps Focus
-MLOps-3.1	All cloud infrastructure (Kubernetes, Databases, S3 buckets) must be provisioned and managed using Terraform (IaC).	Automation, Standardization
-MLOps-3.2	The Model Serving API and Data Validation services shall implement Horizontal Pod Autoscaling (HPA) based on CPU utilization (≥70%) and request queue depth.	Scalability
-MLOps-3.3	GPU nodes for the Simulation Service must be dynamically allocated/de-allocated based on the job queue to optimize cost.	Resource Optimization
+### **4.4 Monitoring and Observability**
 
-Export to Sheets
-4.4 Monitoring and Observability
-ID	Requirement	MLOps/DevOps Focus
-MLOps-4.1	The system must collect and visualize system metrics (latency, throughput, error rates) using Prometheus/Grafana.	System Health
-MLOps-4.2	The system must monitor and alert on data drift (change in feature distribution) and model performance degradation (model drift) in real-time production traffic.	Model Monitoring
-MLOps-4.3	All application and pipeline logs must be centralized and searchable (ELK Stack) for rapid troubleshooting.	Centralized Logging
+| ID | Requirement | MLOps/DevOps Focus |
+| :--- | :--- | :--- |
+| **MLOps-4.1** | The system must collect and visualize **system metrics** (latency, throughput, error rates) using **Prometheus/Grafana**. | System Health |
+| **MLOps-4.2** | The system must monitor and alert on **data drift** (change in feature distribution) and **model performance degradation (model drift)** in real-time production traffic. | Model Monitoring |
+| **MLOps-4.3** | All application and pipeline logs must be centralized and searchable (ELK Stack) for rapid troubleshooting. | Centralized Logging |
 
-Export to Sheets
-5. Non-Functional Requirements (NFR)
-ID	Category	Requirement
-NFR-1	Performance	Model inference (prediction) latency must be <5 seconds from the time data is received.
-NFR-2	Scalability	The system must support concurrent data ingestion and analysis for up to 50 active wells (via MLOps-3.2).
-NFR-3	Reliability	The system must implement Kafka-based buffering to ensure zero data loss (RPO ≈0) during temporary network outages.
-NFR-4	Disaster Recovery	Critical services must achieve a Recovery Time Objective (RTO) of <4 hours via automated multi-AZ failover.
-NFR-5	Security	Access to all APIs and the dashboard must be enforced by Role-Based Access Control (RBAC); all data transmission must use TLS.
+-----
 
-Export to Sheets
-6. System Architecture & Data Flow Diagram
-6.1 High-Level Architecture Overview
-The system employs a Microservices architecture orchestrated by Kubernetes and centered around a high-throughput Kafka data bus. The architecture distinctly separates the data pipeline, MLOps/ML Core, and the presentation layer, all managed by IaC and CI/CD.
+## 5\. Non-Functional Requirements (NFR)
 
-Code snippet
+| ID | Category | Requirement |
+| :--- | :--- | :--- |
+| **NFR-1** | **Performance** | Model inference (prediction) latency must be $<5\text{ seconds}$ from the time data is received. |
+| **NFR-2** | **Scalability** | The system must support concurrent data ingestion and analysis for up to **50 active wells** (via MLOps-3.2). |
+| **NFR-3** | **Reliability** | The system must implement Kafka-based buffering to ensure **zero data loss (RPO $\approx 0$)** during temporary network outages. |
+| **NFR-4** | **Disaster Recovery** | Critical services must achieve a **Recovery Time Objective (RTO) of $<4\text{ hours}$** via automated multi-AZ failover. |
+| **NFR-5** | **Security** | Access to all APIs and the dashboard must be enforced by **Role-Based Access Control (RBAC)**; all data transmission must use TLS. |
 
+-----
+
+## 6\. System Architecture & Data Flow Diagram
+
+### 6.1 High-Level Architecture Overview
+
+The system employs a $\mathbf{Microservices}$ architecture orchestrated by $\mathbf{Kubernetes}$ and centered around a high-throughput $\mathbf{Kafka}$ data bus. The architecture distinctly separates the data pipeline, MLOps/ML Core, and the presentation layer, all managed by IaC and CI/CD.
+
+```mermaid
 flowchart TD
     subgraph A [Data Acquisition Layer]
         A1[MWD/LWD Sensors]
@@ -173,11 +197,15 @@ flowchart TD
     G2 -- Artifacts --> G3
     G3 -- Deploys --> C, E, F
     G4 -- Provisions --> D
-6.2 MLOps & CI/CD Pipeline Diagram
+```
+
+-----
+
+### 6.2 MLOps & CI/CD Pipeline Diagram
+
 The diagram illustrates the automation flow for both code (DevOps) and machine learning models (MLOps).
 
-Code snippet
-
+```mermaid
 flowchart LR
     subgraph A [Development Phase]
         A1[Developer Commit<br>Code/Model Changes] --> A2(Git Repository<br>Source Code/IaC/ML Code)
@@ -215,21 +243,31 @@ flowchart LR
     end
 
     D5 --> E1
-7. Technology Stack (MLOps/DevOps Complete)
-Layer	Technology	Purpose (MLOps/DevOps Context)
-Orchestration	Kubernetes, Docker, Helm	Containerization, environment standardization, and deployment packaging.
-IaC	Terraform	Automated provisioning of cloud infrastructure (VPC, Databases, S3).
-CI/CD & GitOps	GitLab CI, ArgoCD	Source code control, automated testing, and continuous deployment via GitOps.
-MLOps	MLflow, Airflow	Model versioning, experiment tracking, and pipeline orchestration (CT).
-Data Validation	Great Expectations	Defining and enforcing data quality standards (Validation as Code).
-Monitoring	Prometheus, Grafana, ELK Stack	System health, logging centralization, and Model/Data Drift visualization.
-Data Streaming	Apache Kafka, Flink	Real-time buffering, message queuing, and stream processing.
-Frontend	React.js, D3.js, Plotly	Interactive, real-time visualization of model outputs and SHAP explanations.
+```
 
-Export to Sheets
-8. FIDPS MVP Roadmap: Phased Development Strategy
-MVP Goal: Deliver core predictive capabilities for 3 critical damage types within 6 months, using an automated, observable MLOps/DevOps pipeline.
-Phase	Duration	Focus Area	Key MLOps/DevOps Tasks	Deliverables
-Phase 1	M1-M2	Foundation & IaC	1. Deploy core K8s/VPC via Terraform (MLOps-3.1). 2. Implement basic GitLab CI for build/test (MLOps-1.1). 3. Deploy Kafka & Data Validation w/ Great Expectations.	IaC Baseline, Functional CI Pipeline, Validated Data Stream.
-Phase 2	M3-M4	Analytics & MLOps Core	1. Deploy MLflow for tracking and registry (MLOps-2.1). 2. Train and containerize 3 initial ML models. 3. Integrate ArgoCD for staging environment deployment (MLOps-1.2).	3 Production-ready Models, Model Serving API, Automated Staging CD.
-Phase 3	M5-M6	UX, Monitoring & Deployment	1. Configure Prometheus/Grafana for health and latency metrics (MLOps-4.1). 2. Implement HPA for Model Serving API (MLOps-3.2). 3. Conduct final deployment using Canary Release (MLOps-2.3).	Final MVP Dashboard, Active Monitoring Stack, Production System (RTO/RPO met).
+-----
+
+## 7\. Technology Stack (MLOps/DevOps Complete)
+
+| Layer | Technology | Purpose (MLOps/DevOps Context) |
+| :--- | :--- | :--- |
+| **Orchestration** | **Kubernetes, Docker, Helm** | Containerization, environment standardization, and deployment packaging. |
+| **IaC** | **Terraform** | Automated provisioning of cloud infrastructure (VPC, Databases, S3). |
+| **CI/CD & GitOps** | **GitLab CI, ArgoCD** | Source code control, automated testing, and continuous deployment via GitOps. |
+| **MLOps** | **MLflow, Airflow** | Model versioning, experiment tracking, and pipeline orchestration (CT). |
+| **Data Validation** | **Great Expectations** | Defining and enforcing data quality standards (Validation as Code). |
+| **Monitoring** | **Prometheus, Grafana, ELK Stack** | System health, logging centralization, and **Model/Data Drift** visualization. |
+| **Data Streaming** | **Apache Kafka, Flink** | Real-time buffering, message queuing, and stream processing. |
+| **Frontend** | React.js, D3.js, Plotly | Interactive, real-time visualization of model outputs and SHAP explanations. |
+
+-----
+
+## 8\. FIDPS MVP Roadmap: Phased Development Strategy
+
+### **MVP Goal:** Deliver core predictive capabilities for 3 critical damage types within 6 months, using an automated, observable MLOps/DevOps pipeline.
+
+| Phase | Duration | Focus Area | Key MLOps/DevOps Tasks | Deliverables |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | M1-M2 | **Foundation & IaC** | 1. Deploy core K8s/VPC via **Terraform (MLOps-3.1)**. 2. Implement basic **GitLab CI** for build/test (MLOps-1.1). 3. Deploy Kafka & Data Validation w/ **Great Expectations**. | IaC Baseline, Functional CI Pipeline, Validated Data Stream. |
+| **Phase 2** | M3-M4 | **Analytics & MLOps Core** | 1. Deploy **MLflow** for tracking and registry (MLOps-2.1). 2. Train and containerize 3 initial ML models. 3. Integrate **ArgoCD** for staging environment deployment (MLOps-1.2). | 3 Production-ready Models, Model Serving API, Automated Staging CD. |
+| **Phase 3** | M5-M6 | **UX, Monitoring & Deployment** | 1. Configure **Prometheus/Grafana** for health and latency metrics (MLOps-4.1). 2. Implement **HPA** for Model Serving API (MLOps-3.2). 3. Conduct final deployment using **Canary Release (MLOps-2.3)**. | Final MVP Dashboard, Active Monitoring Stack, Production System (RTO/RPO met). |
