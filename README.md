@@ -1,6 +1,5 @@
 I've integrated a detailed **System Architecture & Data Flow Diagram** and a separate, detailed **MLOps/DevOps Pipeline Diagram** into the SRS. The entire document, including the newly integrated MLOps and DevOps requirements, has been rewritten for completeness and clarity.
 
------
 
 # 🛢️ Software Requirements Specification (SRS)
 
