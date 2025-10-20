@@ -1,30 +1,22 @@
-I have updated the comprehensive Software Requirements Specification (SRS) to include the detailed requirements for the **Dashboard (FR-5)**. Specifically, I've mandated the use of **React.js** for the frontend, and specified the integration of **Kafka, Grafana, and Prometheus** for real-time monitoring of all core items, including sensor data and analytical results (RTO, DVR, PdM).
+ 📝 Software Requirements Specification (SRS)
 
-The requirements for real-time, simultaneous, and serial data reading from sensors have been integrated into the **Data Ingestion (FR-1)** and **NFR** sections.
+Intelligent Formation Integrity & Damage Prevention System (FIDPS): Comprehensive Monitoring & UI Strategy
 
-Here is the complete and final SRS for the FIDPS.
-
------
-
-# 📝 Software Requirements Specification (SRS)
-
-## **Intelligent Formation Integrity & Damage Prevention System (FIDPS): Comprehensive Monitoring & UI Strategy**
-
-**Version:** 10.0 (Dashboard & Monitoring Complete)
+**Version:** 11.0 (Damage Types & Dashboard Complete)
 **Date:** October 12, 2025
 **Status:** Final
 
 -----
 
-## 1\. Introduction
+## 1. Introduction
 
 ### 1.1 Purpose
 
-This document specifies the comprehensive requirements for the **Intelligent Formation Integrity & Damage Prevention System (FIDPS)**. This version mandates the technology stack and functional requirements for the **User Interface (Dashboard)** and the underlying **Real-Time Monitoring** systems, ensuring all product items and sensor data are visualized effectively.
+This document specifies the comprehensive requirements for the **Intelligent Formation Integrity & Damage Prevention System (FIDPS)**. This version mandates the technology stack and functional requirements for the **User Interface (Dashboard)** and the underlying **Real-Time Monitoring** systems, ensuring all product items, sensor data, and **specific formation damage types** are visualized and diagnosed effectively.
 
 ### 1.2 System Scope
 
-FIDPS is an end-to-end, **AI-Native** platform covering data acquisition and classification, integrity (**DVR**), predictive analytics (**PdM**), and closed-loop optimization (**RTO**). The UI will be built using **React.js** and backed by **Kafka, Grafana, and Prometheus** for full observability.
+FIDPS is an end-to-end, **AI-Native** platform covering data acquisition and classification, integrity (**DVR**), predictive analytics (**PdM**) for specific damage mechanisms, and closed-loop optimization (**RTO**). The UI will be built using **React.js** and backed by **Kafka, Grafana, and Prometheus** for full observability.
 
 ### 1.3 Definitions and Acronyms
 
@@ -42,29 +34,31 @@ FIDPS is an end-to-end, **AI-Native** platform covering data acquisition and cla
 | **RTO** | Real-Time Optimization |
 | **TSDB** | Time-Series Database (e.g., InfluxDB) |
 | **LWD/MWD**| Logging While Drilling/Measurement While Drilling Sensors |
+| **Formation Damage Types** | Predefined taxonomy of damage mechanisms (e.g., CLAY_IRON_CONTROL, SCALE_SLUDGE) |
 
 -----
 
-## 2\. Overall Description
+## 2. Overall Description
 
 ### 2.1 Vision
 
-To establish FIDPS as the industry benchmark for proactive, optimized, and reliable drilling operations by providing a robust, single-pane-of-glass dashboard for monitoring all data streams, analytical results, and system health in real-time.
+To establish FIDPS as the industry benchmark for proactive, optimized, and reliable drilling operations by providing a robust, single-pane-of-glass dashboard for monitoring all data streams, analytical results, **formation damage risks**, and system health in real-time.
 
 ### 2.2 Key Features
 
-The system's core functionality, with emphasis on the user experience and monitoring:
+The system's core functionality, with emphasis on the user experience, damage diagnostics, and monitoring:
 
-1.  **Comprehensive Dashboard (React.js):** The primary interface for all real-time monitoring, optimization, and data quality displays.
-2.  **Full Real-Time Observability:** Integration with **Kafka, Prometheus, and Grafana** to monitor every component (DVR, RTO, PdM, MLOps metrics) and all raw sensor data.
-3.  **Real-Time Data Streaming:** Guaranteed high-throughput, simultaneous, and serial data reading from all **LWD/MWD** sensors.
-4.  **Data Strategy:** System handles classified data sources: **HSD**, **SSD**, and placeholders for future data (**EMLD**, **ETPD**).
-5.  **Advanced MLOps:** **Full automation**, model versioning, automated remediation, and a secure deployment strategy.
-6.  **AI Governance:** Continuous **auditing of model bias and fairness**.
+1.  **Comprehensive Dashboard (React.js):** The primary interface for all real-time monitoring, optimization, **damage type diagnostics**, and data quality displays.
+2.  **Formation Damage Intelligence:** ML models are specifically trained to predict, classify, and determine the root cause of a defined taxonomy of **formation damage types**.
+3.  **Full Real-Time Observability:** Integration with **Kafka, Prometheus, and Grafana** to monitor every component (DVR, RTO, PdM, MLOps metrics) and all raw sensor data.
+4.  **Real-Time Data Streaming:** Guaranteed high-throughput, simultaneous, and serial data reading from all **LWD/MWD** sensors.
+5.  **Data Strategy:** System handles classified data sources: **HSD**, **SSD**, and placeholders for future data (**EMLD**, **ETPD**).
+6.  **Advanced MLOps:** **Full automation**, model versioning, automated remediation, and a secure deployment strategy.
+7.  **AI Governance:** Continuous **auditing of model bias and fairness**.
 
 -----
 
-## 3\. Functional Requirements (FR)
+## 3. Functional Requirements (FR)
 
 ### **FR-1: Data Ingestion, DVR & TSDB Core**
 
@@ -75,20 +69,31 @@ The system's core functionality, with emphasis on the user experience and monito
   - **FR-1.7 (TSDB):** The system shall store all high-frequency raw and reconciled time-series data in **InfluxDB** with a minimum resolution of **$1\text{ second}$**.
   - **FR-1.8 (Sensor Reading):** The data ingestion layer must support **simultaneous and serial** reading of data packets from all active **LWD/MWD** sensors in a non-blocking, asynchronous manner.
 
-### **FR-2: Machine Learning Core**
+### **FR-2: Machine Learning Core & Damage Diagnostics**
 
   - **FR-2.1:** The system shall serve real-time predictions for **formation damage risk** and key drilling parameters.
+  - **FR-2.2 (Damage Type Classification):** The ML Core shall classify the predicted formation damage risk into one or more of the following predefined **Damage Types**:
+      - `CLAY_IRON_CONTROL = "DT-01"`
+      - `DRILLING_INDUCED = "DT-02"`
+      - `FLUID_LOSS = "DT-03"`
+      - `SCALE_SLUDGE = "DT-04"`
+      - `NEAR_WELLBORE_EMULSIONS = "DT-05"`
+      - `ROCK_FLUID_INTERACTION = "DT-06"`
+      - `COMPLETION_DAMAGE = "DT-07"`
+      - `STRESS_CORROSION = "DT-08"`
+      - `SURFACE_FILTRATION = "DT-09"`
+      - `ULTRA_CLEAN_FLUIDS = "DT-10"`
   - **FR-2.3:** All predictions must be traceable to the exact ML model version, Feature Set version, and the Source Data Category (HSD/SSD) used for training.
-  - **FR-2.6 (Causal Inference):** The ML Core shall integrate a module for **Causal Inference** to explicitly determine the root cause of the predicted damage risk.
+  - **FR-2.6 (Causal Inference):** The ML Core shall integrate a module for **Causal Inference** to explicitly determine the root cause of the predicted damage risk, linking operational parameters to the specific **Damage Type (FR-2.2)**.
 
 ### **FR-3: Predictive Maintenance (PdM) & Proactive Control**
 
   - **FR-3.1 (PdM):** The system shall continuously forecast the **time-to-critical formation integrity breach**.
-  - **FR-3.2 (PdM):** The system shall identify the **Top 3 Preventative Actions** necessary to mitigate risk.
+  - **FR-3.2 (PdM):** The system shall identify the **Top 3 Preventative Actions** necessary to mitigate risk, with actions specifically tailored to the predicted **Damage Type (FR-2.2)**.
 
 ### **FR-4: Real-Time Optimization (RTO) Core**
 
-  - **FR-4.1 (RTO):** The RTO service shall execute a **multi-objective optimization** algorithm to calculate optimal drilling parameters.
+  - **FR-4.1 (RTO):** The RTO service shall execute a **multi-objective optimization** algorithm to calculate optimal drilling parameters, with the objective function including the minimization of risk for the most probable **Damage Type (FR-2.2)**.
   - **FR-4.3 (RTO):** The RTO service shall output a set of **recommended set-points** for key controllable parameters at a maximum interval of $\text{60 seconds}$.
   - **FR-4.4 (RTO):** The system shall require **User Approval** for applying RTO recommendations.
 
@@ -101,9 +106,13 @@ The system's core functionality, with emphasis on the user experience and monito
       - **PdM forecasts and active Integrity Alerts.**
       - **RTO recommendations and trade-off curves.**
       - **Core ML metrics (drift, error rates).**
-  - **FR-5.3 (TSDB Visualization):** The dashboard shall display time-series data queried directly from **InfluxDB** with sub-second latency for real-time trending (NFR-1).
-  - **FR-5.4 (RTO Control):** The UI shall feature a prominent **RTO Approval Panel** for immediate user confirmation of recommended set-points.
-  - **FR-5.5 (Real-Time Data Flow Visualization):** The dashboard shall display the health and throughput of the **Kafka** data pipeline.
+  - **FR-5.3 (Damage Diagnostics Panel):** The dashboard shall feature a dedicated panel for **Formation Damage Diagnostics**. This panel must clearly display:
+      - The currently predicted **Damage Type (from FR-2.2)**.
+      - The probability/confidence score for the diagnosis.
+      - The **Causal Inference (FR-2.6)** results, showing the key contributing factors.
+  - **FR-5.4 (TSDB Visualization):** The dashboard shall display time-series data queried directly from **InfluxDB** with sub-second latency for real-time trending (NFR-1).
+  - **FR-5.5 (RTO Control):** The UI shall feature a prominent **RTO Approval Panel** for immediate user confirmation of recommended set-points.
+  - **FR-5.6 (Real-Time Data Flow Visualization):** The dashboard shall display the health and throughput of the **Kafka** data pipeline.
 
 ### **FR-7: AI Governance and Ethics**
 
@@ -112,7 +121,7 @@ The system's core functionality, with emphasis on the user experience and monito
 
 -----
 
-## 4\. MLOps & DevOps Requirements (MLOps/DR)
+## 4. MLOps & DevOps Requirements (MLOps/DR)
 
 ### **4.1 Continuous Integration & Continuous Delivery (CI/CD)**
 
@@ -125,7 +134,7 @@ The system's core functionality, with emphasis on the user experience and monito
 
 | ID | Requirement | MLOps/DevOps Focus |
 | :--- | :--- | :--- |
-| **MLOps-2.1:** | The training pipeline must use **MLflow** for tracking, versioning, and registering all model artifacts, including the **SSD/HSD mix ratio** used for training. | Model Registry, Versioning |
+| **MLOps-2.1:** | The training pipeline must use **MLflow** for tracking, versioning, and registering all model artifacts, including the **SSD/HSD mix ratio** used for training and the **Damage Type taxonomy (FR-2.2)** the model is designed to predict. | Model Registry, Versioning |
 | **MLOps-2.5:** | The system shall automatically execute a **Model Rollback** to the last known stable version upon exceeding a critical threshold for inference error rate or model drift (Automated Remediation). | Automated Remediation |
 
 ### **4.4 Monitoring and Observability (Prometheus/Grafana)**
@@ -138,7 +147,7 @@ The system's core functionality, with emphasis on the user experience and monito
 
 -----
 
-## 5\. Non-Functional Requirements (NFR)
+## 5. Non-Functional Requirements (NFR)
 
 | ID | Category | Requirement |
 | :--- | :--- | :--- |
@@ -149,11 +158,11 @@ The system's core functionality, with emphasis on the user experience and monito
 
 -----
 
-## 6\. System Architecture & Data Flow Diagram
+## 6. System Architecture & Data Flow Diagram
 
 ### 6.1 High-Level Architecture Overview
 
-The architecture emphasizes **Kafka** for transport, **InfluxDB** for high-frequency storage, and the **React.js Dashboard** as the unified presentation layer.
+The architecture emphasizes **Kafka** for transport, **InfluxDB** for high-frequency storage, and the **React.js Dashboard** as the unified presentation layer, now enhanced with **Damage Type** diagnostics.
 
 ```mermaid
 flowchart TD
@@ -185,8 +194,16 @@ flowchart TD
 
     subgraph E [Analytics & Intelligence Core]
         E1[Model Serving API (HPA)]
+        E2[Damage Diagnostics<br>Classifies: DT-01..DT-10 FR-2.2]
         E3[RTO Service (FR-4.1)]
+        E4[Causal Inference Engine<br>FR-2.6]
     end
+
+    D1 --> E1
+    E1 --> E2
+    E2 -- Damage Type & Risk --> E3
+    E2 -- Damage Type & Features --> E4
+    E4 -- Root Cause Analysis --> E2
 
     subgraph F [Observability & Presentation Layer]
         F1[Prometheus<br>Metrics Collection (MLOps-4.1)]
@@ -194,7 +211,7 @@ flowchart TD
         F3[React.js Dashboard (FR-5.1)<br>Unified UI]
     end
 
-    E1 & E3 & C3 --> F3 (Real-Time Data)
+    E1 & E3 & E2 & E4 --> F3 (Real-Time Data & Diagnostics)
     D2 -- Query --> F3 (Time Series Data)
     E & C -- Metrics --> F1
     F1 --> F2
