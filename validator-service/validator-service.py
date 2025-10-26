@@ -148,9 +148,41 @@ pg_conn = connect_postgres()
 mongo_collection = connect_mongo()
 
 # Processing loop
-for msg in consumer:
-    data = msg.value
+
+def preprocess_data(data):
     df = pd.DataFrame([data])
 
-    # Convert data types
-    df['ECD'] = pd
+    # تبدیل timestamp به datetime
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+    # تبدیل رشته به عدد در صورت نیاز
+    for col in ["ECD", "RPM", "depth"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    return df
+
+# حلقه‌ی پردازش Kafka
+for msg in consumer:
+    data = msg.value
+    logging.info(f"Received message: {data}")
+
+    df = preprocess_data(data)
+
+    try:
+        schema.validate(df)
+        data["is_valid"] = True
+    except pa.errors.SchemaError as e:
+        data["is_valid"] = False
+        data["validation_error"] = str(e)
+        logging.warning(f"Validation failed: {e.failure_cases}")
+
+    if data["is_valid"]:
+        if pg_conn:
+            retry(insert_postgres, [pg_conn, data])
+    else:
+        if mongo_collection:
+            retry(insert_mongo, [mongo_collection, data])
+
+    logging.info(f"Processed message: is_valid={data['is_valid']}")
