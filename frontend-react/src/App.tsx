@@ -9,6 +9,7 @@ import DataQualityPage from './pages/DataQualityPage'
 import SystemPage from './pages/SystemPage'
 import DamageDiagnosticsPage from './pages/DamageDiagnosticsPage'
 import RTOControlPage from './pages/RTOControlPage'
+import RealtimeMonitoringPage from './pages/RealtimeMonitoringPage'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function App() {
             <Route path="/rto-control" element={<RTOControlPage />} />
             <Route path="/data-quality" element={<DataQualityPage />} />
             <Route path="/system" element={<SystemPage />} />
+            <Route path="/realtime-monitoring" element={<RealtimeMonitoringPage />} />
           </Routes>
         </Layout>
         <Toaster 

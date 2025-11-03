@@ -7,12 +7,14 @@ import {
   Settings,
   CheckCircle,
   Gauge,
+  Activity,
 } from 'lucide-react'
 
 const Sidebar = () => {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
     { path: '/wells', icon: Well, label: 'Wells' },
+    { path: '/realtime-monitoring', icon: Activity, label: 'Real-Time Monitoring' },
     { path: '/anomalies', icon: AlertTriangle, label: 'Anomalies' },
     { path: '/damage-diagnostics', icon: Flask, label: 'Damage Diagnostics' },
     { path: '/rto-control', icon: Gauge, label: 'RTO Control' },
