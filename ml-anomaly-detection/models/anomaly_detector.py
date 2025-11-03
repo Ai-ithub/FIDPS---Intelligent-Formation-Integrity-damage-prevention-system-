@@ -49,6 +49,19 @@ class AnomalyType(Enum):
     TEMPERATURE_ANOMALY = "temperature_anomaly"
     PRESSURE_ANOMALY = "pressure_anomaly"
 
+class DamageType(Enum):
+    """Formation Damage Types (FR-2.2)"""
+    CLAY_IRON_CONTROL = "DT-01"
+    DRILLING_INDUCED = "DT-02"
+    FLUID_LOSS = "DT-03"
+    SCALE_SLUDGE = "DT-04"
+    NEAR_WELLBORE_EMULSIONS = "DT-05"
+    ROCK_FLUID_INTERACTION = "DT-06"
+    COMPLETION_DAMAGE = "DT-07"
+    STRESS_CORROSION = "DT-08"
+    SURFACE_FILTRATION = "DT-09"
+    ULTRA_CLEAN_FLUIDS = "DT-10"
+
 class AnomalySeverity(Enum):
     """Severity levels for detected anomalies"""
     LOW = "low"
@@ -68,6 +81,10 @@ class AnomalyResult:
     description: str
     recommendations: List[str]
     model_name: str
+    # Damage Type Classification (FR-2.2)
+    damage_type: Optional[DamageType] = None
+    damage_type_probability: float = 0.0
+    damage_type_confidence: float = 0.0
 
 class MWDLWDFeatureExtractor:
     """Extract features from MWD/LWD data for anomaly detection"""
@@ -540,7 +557,7 @@ class EnsembleAnomalyDetector:
             all_results = if_results + lstm_results
             
             # Remove duplicates and aggregate
-            final_results = self._aggregate_results(all_results)
+            final_results = self._aggregate_results(all_results, data)
             
             self.logger.info(f"Ensemble detected {len(final_results)} anomalies")
             
@@ -550,7 +567,7 @@ class EnsembleAnomalyDetector:
             self.logger.error(f"Error in ensemble prediction: {e}")
             raise
     
-    def _aggregate_results(self, results: List[AnomalyResult]) -> List[AnomalyResult]:
+    def _aggregate_results(self, results: List[AnomalyResult], data: pd.DataFrame = None) -> List[AnomalyResult]:
         """Aggregate results from multiple models"""
         # Group by timestamp and well_id
         grouped = {}
@@ -573,7 +590,63 @@ class EnsembleAnomalyDetector:
             else:
                 final_results.append(group[0])
         
+        # Add damage type classification (FR-2.2)
+        if self.enable_damage_classification and self.damage_classifier and self.damage_classifier.is_fitted and data is not None:
+            # Get original data for classification
+            # Note: In real implementation, pass original data sample
+            for result in final_results:
+                # Classify damage type based on features
+                # This is a simplified version - in production, use the original data sample
+                damage_prediction = self._classify_damage_type(result, data)
+                if damage_prediction:
+                    result.damage_type = damage_prediction['damage_type']
+                    result.damage_type_probability = damage_prediction['probability']
+                    result.damage_type_confidence = damage_prediction['confidence']
+        
         return final_results
+    
+    def _classify_damage_type(self, result: AnomalyResult, data: pd.DataFrame) -> Optional[Dict]:
+        """Classify damage type for an anomaly result"""
+        try:
+            if self.damage_classifier and self.damage_classifier.is_fitted:
+                # Extract features from the data point that caused the anomaly
+                # In production, this should use the actual data sample, not just features
+                sample_features = pd.DataFrame([result.features])
+                
+                # Use classifier
+                damage_types, probabilities = self.damage_classifier.predict(sample_features)
+                
+                if damage_types and damage_types[0] is not None:
+                    pred_idx = list(DamageType).index(damage_types[0])
+                    prob = probabilities[0][pred_idx] if probabilities is not None else result.confidence
+                    
+                    return {
+                        'damage_type': damage_types[0],
+                        'probability': float(prob),
+                        'confidence': float(prob)
+                    }
+        except Exception as e:
+            self.logger.warning(f"Error classifying damage type: {e}")
+        
+        return None
+    
+    def train_damage_classifier(self, data: pd.DataFrame, labels: List[DamageType]) -> None:
+        """Train the damage type classifier with labeled data"""
+        if not self.enable_damage_classification or not self.damage_classifier:
+            self.logger.warning("Damage classification not enabled")
+            return
+        
+        try:
+            # Extract features
+            features = self.damage_classifier.extract_damage_features(data)
+            
+            # Train classifier
+            self.damage_classifier.fit(features, labels)
+            
+            self.logger.info("Damage type classifier trained successfully")
+        except Exception as e:
+            self.logger.error(f"Error training damage classifier: {e}")
+            raise
 
 # Model persistence utilities
 class ModelManager:
