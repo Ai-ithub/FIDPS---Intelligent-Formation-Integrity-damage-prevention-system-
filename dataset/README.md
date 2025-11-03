@@ -1,75 +1,75 @@
 # FIDPS Dataset Generator
 
-## نمای کلی
+## Overview
 
-این مجموعه اسکریپت‌ها برای تولید دیتاست جامع سیستم پیشگیری از آسیب یکپارچگی سازند (FIDPS) طراحی شده است. دیتاست شامل داده‌های سنسور LWD/MWD و تصاویر مرتبط گمانه با انواع آسیب‌های سازندی می‌باشد.
+This suite of scripts is designed to generate a comprehensive dataset for the Formation Integrity Damage Prevention System (FIDPS). The dataset includes LWD/MWD sensor data and corresponding borehole images with various formation damage types.
 
-## ویژگی‌ها
+## Features
 
-### 🔧 داده‌های سنسور
-- داده‌های LWD/MWD شبیه‌سازی شده
-- شامل 20+ پارامتر عملیاتی
-- شبیه‌سازی انواع آسیب‌های سازندی
-- تشخیص ناهنجاری و محاسبه ریسک
-- فرمت‌های مختلف خروجی (CSV, Parquet, JSON)
+### 🔧 Sensor Data
+- Simulated LWD/MWD data
+- 20+ operational parameters
+- Simulation of various formation damage types
+- Anomaly detection and risk calculation
+- Multiple output formats (CSV, Parquet, JSON)
 
-### 🖼️ داده‌های تصویری
-- تصاویر مصنوعی گمانه
-- شبیه‌سازی 9 نوع آسیب سازندی
-- ابعاد متغیر بر اساس عمق
-- ارتباط با داده‌های سنسور
+### 🖼️ Image Data
+- Synthetic borehole images
+- Simulation of 9 formation damage types
+- Variable dimensions based on depth
+- Correlation with sensor data
 
-### 🔗 ارتباط داده‌ها
-- ارتباط زمانی بین تصاویر و داده‌های سنسور
-- متادیتای جامع
-- فایل‌های mapping برای ردیابی ارتباطات
+### 🔗 Data Correlation
+- Temporal correlation between images and sensor data
+- Comprehensive metadata
+- Mapping files for traceability
 
-## ساختار فایل‌ها
+## File Structure
 
 ```
 dataset/
-├── data_generator.py           # تولید داده‌های سنسور LWD/MWD
-├── make_dataset.py            # تولید تصاویر گمانه
-├── unified_dataset_generator.py # تولید یکپارچه داده‌ها
-├── generate_fidps_dataset.py  # اسکریپت اصلی
-├── fidps_config.json         # فایل پیکربندی (ایجاد خودکار)
-└── README.md                 # این فایل
+├── data_generator.py           # LWD/MWD sensor data generation
+├── make_dataset.py            # Borehole image generation
+├── unified_dataset_generator.py # Unified data generation
+├── generate_fidps_dataset.py  # Main script
+├── fidps_config.json         # Configuration file (auto-generated)
+└── README.md                 # This file
 ```
 
-## نصب و راه‌اندازی
+## Installation & Setup
 
-### پیش‌نیازها
+### Prerequisites
 
 ```bash
 pip install pandas numpy matplotlib opencv-python pyarrow tqdm
 ```
 
-### استفاده سریع
+### Quick Start
 
 ```bash
-# تولید دیتاست با تنظیمات پیش‌فرض
+# Generate dataset with default settings
 python generate_fidps_dataset.py
 
-# تولید برای 7 روز با 50 تصویر در روز
+# Generate for 7 days with 50 images per day
 python generate_fidps_dataset.py --days 7 --images 50
 
-# استفاده از فایل پیکربندی سفارشی
+# Use custom configuration file
 python generate_fidps_dataset.py --config my_config.json
 ```
 
-## راهنمای استفاده
+## Usage Guide
 
-### 1. ایجاد فایل پیکربندی
+### 1. Create Configuration File
 
 ```bash
 python generate_fidps_dataset.py --create-config
 ```
 
-این دستور فایل `fidps_config.json` را با تنظیمات پیش‌فرض ایجاد می‌کند.
+This command creates a `fidps_config.json` file with default settings.
 
-### 2. ویرایش پیکربندی
+### 2. Edit Configuration
 
-فایل `fidps_config.json` را ویرایش کنید:
+Edit the `fidps_config.json` file:
 
 ```json
 {
@@ -87,96 +87,96 @@ python generate_fidps_dataset.py --create-config
 }
 ```
 
-### 3. تولید دیتاست
+### 3. Generate Dataset
 
 ```bash
-# بررسی پیکربندی بدون تولید
+# Check configuration without generation
 python generate_fidps_dataset.py --dry-run
 
-# تولید دیتاست
+# Generate dataset
 python generate_fidps_dataset.py
 ```
 
-## گزینه‌های خط فرمان
+## Command Line Options
 
-| گزینه | توضیح |
-|--------|-------|
-| `--config, -c` | مسیر فایل پیکربندی |
-| `--create-config` | ایجاد فایل پیکربندی پیش‌فرض |
-| `--output, -o` | دایرکتوری خروجی |
-| `--days, -d` | مدت زمان به روز |
-| `--images, -i` | تعداد تصاویر در روز |
-| `--start-date, -s` | تاریخ شروع (YYYY-MM-DD) |
-| `--quiet, -q` | حذف خروجی‌های تفصیلی |
-| `--dry-run` | نمایش پیکربندی بدون تولید |
+| Option | Description |
+|--------|-------------|
+| `--config, -c` | Path to configuration file |
+| `--create-config` | Create default configuration file |
+| `--output, -o` | Output directory |
+| `--days, -d` | Duration in days |
+| `--images, -i` | Number of images per day |
+| `--start-date, -s` | Start date (YYYY-MM-DD) |
+| `--quiet, -q` | Suppress verbose output |
+| `--dry-run` | Show configuration without generation |
 
-## ساختار خروجی
+## Output Structure
 
 ```
 fidps_dataset/
-├── sensor_data/              # داده‌های سنسور
+├── sensor_data/              # Sensor data
 │   ├── real_time_data.csv
 │   ├── historical_data.parquet
 │   ├── anomaly_data.json
 │   └── ml_training_data.parquet
-├── images/                   # تصاویر گمانه
+├── images/                   # Borehole images
 │   ├── borehole_00001.png
 │   ├── borehole_00002.png
 │   └── ...
-├── metadata/                 # متادیتا
+├── metadata/                 # Metadata
 │   └── image_metadata.json
-├── correlations/            # ارتباطات
+├── correlations/            # Correlations
 │   ├── image_sensor_correlations.csv
 │   └── image_sensor_correlations.json
-├── dataset_summary.json     # خلاصه دیتاست
-└── generation_config.json   # پیکربندی استفاده شده
+├── dataset_summary.json     # Dataset summary
+└── generation_config.json   # Used configuration
 ```
 
-## انواع آسیب‌های سازندی
+## Formation Damage Types
 
-1. **Clay Swelling** - تورم رس
-2. **Drilling Induced** - آسیب ناشی از حفاری
-3. **Fluid Loss** - از دست دادن سیال
-4. **Scale Formation** - تشکیل رسوب
-5. **Emulsion Blockage** - انسداد امولسیون
-6. **Rock Fluid Interaction** - تعامل سنگ-سیال
-7. **Completion Damage** - آسیب تکمیل
-8. **Stress Corrosion** - خوردگی تنشی
-9. **Surface Filtration** - فیلتراسیون سطحی
+1. **Clay Swelling** - Clay swelling
+2. **Drilling Induced** - Drilling-induced damage
+3. **Fluid Loss** - Fluid loss
+4. **Scale Formation** - Scale formation
+5. **Emulsion Blockage** - Emulsion blockage
+6. **Rock Fluid Interaction** - Rock-fluid interaction
+7. **Completion Damage** - Completion damage
+8. **Stress Corrosion** - Stress corrosion
+9. **Surface Filtration** - Surface filtration
 
-## پارامترهای سنسور
+## Sensor Parameters
 
-### پارامترهای اصلی
-- فشار حلقوی (Annulus Pressure)
-- دمای ته چاه (Bottomhole Temperature)
-- ویسکوزیته گل (Mud Viscosity)
-- نرخ جریان (Flow Rate)
-- فشار پمپ (Pump Pressure)
-- ارتعاشات (Vibration X, Y, Z)
-- گشتاور (Torque)
-- وزن روی بیت (Weight on Bit)
+### Main Parameters
+- Annulus Pressure
+- Bottomhole Temperature
+- Mud Viscosity
+- Flow Rate
+- Pump Pressure
+- Vibration (X, Y, Z)
+- Torque
+- Weight on Bit
 
-### پارامترهای محاسبه شده
-- امتیاز ریسک آسیب (Damage Risk Score)
-- شاخص کیفیت (Quality Index)
-- وضعیت تجهیزات (Equipment Status)
-- آلارم‌ها (Alarms)
+### Calculated Parameters
+- Damage Risk Score
+- Quality Index
+- Equipment Status
+- Alarms
 
-## مثال‌های کاربرد
+## Usage Examples
 
-### تولید دیتاست کوچک برای تست
+### Generate Small Dataset for Testing
 
 ```bash
 python generate_fidps_dataset.py --days 3 --images 10 --output test_dataset
 ```
 
-### تولید دیتاست بزرگ برای آموزش مدل
+### Generate Large Dataset for Model Training
 
 ```bash
 python generate_fidps_dataset.py --days 90 --images 100 --output training_dataset
 ```
 
-### استفاده در کد Python
+### Usage in Python Code
 
 ```python
 from unified_dataset_generator import UnifiedDatasetGenerator
@@ -191,33 +191,10 @@ sensor_data, images, correlations = generator.generate_unified_dataset(
 )
 ```
 
-## نکات مهم
+## Important Notes
 
-1. **حافظه**: تولید تصاویر زیاد نیاز به حافظه بالا دارد
-2. **زمان**: تولید هر تصویر حدود 1-2 ثانیه زمان می‌برد
-3. **فضای ذخیره**: هر تصویر حدود 100-500 کیلوبایت حجم دارد
-4. **ارتباطات**: تصاویر بر اساس زمان و ریسک آسیب با داده‌های سنسور مرتبط می‌شوند
+1. **Memory**: Generating large numbers of images requires significant memory
+2. **Time**: Each image takes approximately 1-2 seconds to generate
+3. **Storage**: Each image is approximately 100-500 KB in size
+4. **Correlations**: Images are correlated with sensor data based on time and damage risk
 
-## عیب‌یابی
-
-### خطاهای رایج
-
-**خطا: ModuleNotFoundError**
-```bash
-pip install -r requirements.txt
-```
-
-**خطا: Memory Error**
-- تعداد تصاویر در روز را کاهش دهید
-- مدت زمان تولید را کوتاه‌تر کنید
-
-**خطا: Invalid date format**
-- از فرمت YYYY-MM-DD استفاده کنید
-
-## مشارکت
-
-برای گزارش باگ یا پیشنهاد بهبود، لطفاً issue ایجاد کنید.
-
-## مجوز
-
-این پروژه تحت مجوز MIT منتشر شده است.
