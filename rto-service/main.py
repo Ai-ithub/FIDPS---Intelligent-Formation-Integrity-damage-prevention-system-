@@ -347,23 +347,51 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS configuration
+import os
+cors_origins = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:80,http://localhost:8000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in cors_origins],  # Only allow specified origins
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Global optimizer instance
 optimizer = RTOOptimizer()
 
-# In-memory storage for recommendations (should be in DB in production)
-recommendations_store: Dict[str, RTORecovery] = {}
+# Database connection for persistent storage
+postgres_pool: Optional[asyncpg.Pool] = None
 
 # Kafka consumer for damage predictions
 kafka_consumer: Optional[KafkaConsumer] = None
 kafka_producer: Optional[KafkaProducer] = None
+
+# In-memory store for recommendations (optional, primary storage is database)
+recommendations_store: Dict[str, RTORecovery] = {}
+
+async def setup_database():
+    """Setup database connection"""
+    global postgres_pool
+    
+    try:
+        postgres_pool = await asyncpg.create_pool(
+            host=os.getenv('POSTGRES_HOST', 'postgres'),
+            port=int(os.getenv('POSTGRES_PORT', '5432')),
+            database=os.getenv('POSTGRES_DB', 'fidps_operational'),
+            user=os.getenv('POSTGRES_USER', 'fidps_user'),
+            password=os.getenv('POSTGRES_PASSWORD', 'fidps_password'),
+            min_size=2,
+            max_size=10
+        )
+        logger.info("PostgreSQL connection pool created")
+    except Exception as e:
+        logger.error(f"Failed to setup PostgreSQL: {e}")
 
 async def setup_kafka():
     """Setup Kafka connections"""
@@ -442,8 +470,8 @@ async def generate_rto_recommendation(
             computation_time_ms=optimization_result['computation_time_ms']
         )
         
-        # Store recommendation
-        recommendations_store[recommendation.id] = recommendation
+        # Store recommendation in database (persistent storage)
+        await store_recommendation(recommendation)
         
         # Publish to Kafka
         if kafka_producer:
@@ -455,22 +483,140 @@ async def generate_rto_recommendation(
     except Exception as e:
         logger.error(f"Error generating RTO recommendation: {e}")
 
+async def store_recommendation(recommendation: RTORecovery):
+    """Store recommendation in PostgreSQL database"""
+    if not postgres_pool:
+        logger.warning("PostgreSQL not available, recommendation not persisted")
+        return
+    
+    try:
+        async with postgres_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO rto_recommendations (
+                    id, timestamp, well_id, damage_type, damage_probability,
+                    current_values, recommended_values,
+                    expected_improvement, risk_reduction, confidence,
+                    constraints_satisfied, constraint_violations,
+                    status, optimization_method, computation_time_ms
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    approved_by = EXCLUDED.approved_by,
+                    approved_at = EXCLUDED.approved_at,
+                    updated_at = NOW()
+            """,
+                recommendation.id,
+                recommendation.timestamp,
+                recommendation.well_id,
+                recommendation.damage_type.value,
+                recommendation.damage_probability,
+                json.dumps(recommendation.current_values.dict()),
+                json.dumps(recommendation.recommended_values.dict()),
+                recommendation.expected_improvement,
+                recommendation.risk_reduction,
+                recommendation.confidence,
+                recommendation.constraints_satisfied,
+                recommendation.constraint_violations,
+                recommendation.status,
+                recommendation.optimization_method,
+                recommendation.computation_time_ms
+            )
+        logger.info(f"Recommendation {recommendation.id} stored in database")
+    except Exception as e:
+        logger.error(f"Error storing recommendation: {e}")
+
+async def get_recommendation_from_db(recommendation_id: str) -> Optional[RTORecovery]:
+    """Get recommendation from database"""
+    if not postgres_pool:
+        return None
+    
+    try:
+        async with postgres_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM rto_recommendations WHERE id = $1",
+                recommendation_id
+            )
+            
+            if not row:
+                return None
+            
+            return RTORecovery(
+                id=row['id'],
+                timestamp=row['timestamp'],
+                well_id=row['well_id'],
+                damage_type=DamageType(row['damage_type']),
+                damage_probability=float(row['damage_probability']),
+                current_values=DrillingParameters(**json.loads(row['current_values'])),
+                recommended_values=DrillingParameters(**json.loads(row['recommended_values'])),
+                expected_improvement=float(row['expected_improvement']),
+                risk_reduction=float(row['risk_reduction']),
+                confidence=float(row['confidence']),
+                constraints_satisfied=row['constraints_satisfied'],
+                constraint_violations=row['constraint_violations'] or [],
+                status=row['status'],
+                approved_by=row.get('approved_by'),
+                approved_at=row.get('approved_at'),
+                optimization_method=row['optimization_method'],
+                computation_time_ms=float(row['computation_time_ms'])
+            )
+    except Exception as e:
+        logger.error(f"Error getting recommendation from database: {e}")
+        return None
+
 @app.on_event("startup")
 async def startup_event():
     """Startup tasks"""
+    await setup_database()
     await setup_kafka()
     # Start background task for processing predictions
     asyncio.create_task(process_damage_predictions())
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Liveness probe - checks if service is running"""
     return {
         "status": "healthy",
         "service": "rto-service",
-        "timestamp": datetime.now().isoformat(),
-        "kafka_connected": kafka_consumer is not None
+        "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/health/ready")
+async def readiness_check():
+    """Readiness probe - checks if service is ready to accept traffic"""
+    services_status = {}
+    overall_healthy = True
+    
+    # Check PostgreSQL
+    if postgres_pool:
+        try:
+            async with postgres_pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            services_status["postgres"] = "connected"
+        except Exception as e:
+            services_status["postgres"] = f"error: {str(e)}"
+            overall_healthy = False
+    else:
+        services_status["postgres"] = "disconnected"
+        overall_healthy = False
+    
+    # Check Kafka
+    if kafka_consumer is not None:
+        services_status["kafka"] = "connected"
+    else:
+        services_status["kafka"] = "disconnected"
+        overall_healthy = False
+    
+    status_code = 200 if overall_healthy else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if overall_healthy else "not_ready",
+            "service": "rto-service",
+            "timestamp": datetime.now().isoformat(),
+            "services": services_status
+        }
+    )
 
 @app.get("/metrics")
 async def metrics():
@@ -517,8 +663,8 @@ async def optimize_parameters(
             computation_time_ms=optimization_result['computation_time_ms']
         )
         
-        # Store recommendation
-        recommendations_store[recommendation.id] = recommendation
+        # Store recommendation in database (persistent storage)
+        await store_recommendation(recommendation)
         
         # Publish to Kafka
         if kafka_producer:
@@ -539,10 +685,11 @@ async def optimize_parameters(
 @app.get("/api/v1/rto/recommendations/{recommendation_id}", response_model=RTORecovery)
 async def get_recommendation(recommendation_id: str):
     """Get a specific RTO recommendation"""
-    if recommendation_id not in recommendations_store:
+    recommendation = await get_recommendation_from_db(recommendation_id)
+    if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
     
-    return recommendations_store[recommendation_id]
+    return recommendation
 
 @app.get("/api/v1/rto/recommendations", response_model=List[RTORecovery])
 async def list_recommendations(
@@ -550,19 +697,60 @@ async def list_recommendations(
     status: Optional[str] = None,
     limit: int = 50
 ):
-    """List RTO recommendations"""
-    recommendations = list(recommendations_store.values())
+    """List RTO recommendations from database"""
+    if not postgres_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
     
-    if well_id:
-        recommendations = [r for r in recommendations if r.well_id == well_id]
-    
-    if status:
-        recommendations = [r for r in recommendations if r.status == status]
-    
-    # Sort by timestamp descending
-    recommendations.sort(key=lambda x: x.timestamp, reverse=True)
-    
-    return recommendations[:limit]
+    try:
+        query = "SELECT * FROM rto_recommendations WHERE 1=1"
+        params = []
+        param_count = 1
+        
+        if well_id:
+            query += f" AND well_id = ${param_count}"
+            params.append(well_id)
+            param_count += 1
+        
+        if status:
+            query += f" AND status = ${param_count}"
+            params.append(status)
+            param_count += 1
+        
+        query += " ORDER BY timestamp DESC LIMIT $" + str(param_count)
+        params.append(limit)
+        
+        async with postgres_pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+        
+        recommendations = []
+        for row in rows:
+            try:
+                recommendations.append(RTORecovery(
+                    id=row['id'],
+                    timestamp=row['timestamp'],
+                    well_id=row['well_id'],
+                    damage_type=DamageType(row['damage_type']),
+                    damage_probability=float(row['damage_probability']),
+                    current_values=DrillingParameters(**json.loads(row['current_values'])),
+                    recommended_values=DrillingParameters(**json.loads(row['recommended_values'])),
+                    expected_improvement=float(row['expected_improvement']),
+                    risk_reduction=float(row['risk_reduction']),
+                    confidence=float(row['confidence']),
+                    constraints_satisfied=row['constraints_satisfied'],
+                    constraint_violations=row['constraint_violations'] or [],
+                    status=row['status'],
+                    approved_by=row.get('approved_by'),
+                    approved_at=row.get('approved_at'),
+                    optimization_method=row['optimization_method'],
+                    computation_time_ms=float(row['computation_time_ms'])
+                ))
+            except Exception as e:
+                logger.error(f"Error parsing recommendation {row['id']}: {e}")
+        
+        return recommendations
+    except Exception as e:
+        logger.error(f"Error listing recommendations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/rto/recommendations/{recommendation_id}/approve", response_model=RTORecovery)
 async def approve_recommendation(
@@ -574,10 +762,9 @@ async def approve_recommendation(
     
     User approval is required before applying RTO recommendations.
     """
-    if recommendation_id not in recommendations_store:
+    recommendation = await get_recommendation_from_db(recommendation_id)
+    if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
-    
-    recommendation = recommendations_store[recommendation_id]
     
     if recommendation.status != "pending":
         raise HTTPException(status_code=400, detail=f"Recommendation already {recommendation.status}")
@@ -585,6 +772,9 @@ async def approve_recommendation(
     recommendation.status = "approved"
     recommendation.approved_by = approved_by
     recommendation.approved_at = datetime.now()
+    
+    # Update in database
+    await store_recommendation(recommendation)
     
     # Publish approval event
     if kafka_producer:
@@ -606,15 +796,19 @@ async def reject_recommendation(
     reason: Optional[str] = None
 ):
     """Reject RTO recommendation"""
-    if recommendation_id not in recommendations_store:
+    recommendation = await get_recommendation_from_db(recommendation_id)
+    if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
-    
-    recommendation = recommendations_store[recommendation_id]
     
     if recommendation.status != "pending":
         raise HTTPException(status_code=400, detail=f"Recommendation already {recommendation.status}")
     
     recommendation.status = "rejected"
+    if reason:
+        recommendation.constraint_violations.append(f"Rejection reason: {reason}")
+    
+    # Update in database
+    await store_recommendation(recommendation)
     
     # Publish rejection event
     if kafka_producer:
@@ -633,16 +827,18 @@ async def reject_recommendation(
 @app.post("/api/v1/rto/recommendations/{recommendation_id}/apply")
 async def apply_recommendation(recommendation_id: str):
     """Apply approved RTO recommendation to drilling system"""
-    if recommendation_id not in recommendations_store:
+    recommendation = await get_recommendation_from_db(recommendation_id)
+    if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
-    
-    recommendation = recommendations_store[recommendation_id]
     
     if recommendation.status != "approved":
         raise HTTPException(status_code=400, detail="Recommendation must be approved before applying")
     
     # Update status
     recommendation.status = "applied"
+    
+    # Update in database
+    await store_recommendation(recommendation)
     
     # Publish to control system (via Kafka)
     if kafka_producer:
