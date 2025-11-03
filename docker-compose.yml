@@ -251,7 +251,7 @@ services:
     container_name: fidps-ml-anomaly-detection
     ports:
       - "8080:8080"  # API endpoint
-      - "9090:9090"  # Prometheus metrics
+      - "9094:9094"  # Prometheus metrics (changed from 9090 to avoid conflict)
     environment:
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -290,7 +290,7 @@ services:
       API_WORKERS: 4
       
       # Monitoring
-      PROMETHEUS_PORT: 9090
+      PROMETHEUS_PORT: 9094
       HEALTH_CHECK_INTERVAL: 30
     volumes:
       - ml_models:/app/models
@@ -370,7 +370,7 @@ services:
     container_name: fidps-rto-service
     ports:
       - "8002:8002"  # API port
-      - "9092:9092"  # Prometheus metrics
+      - "9095:9095"  # Prometheus metrics (changed from 9092 to avoid conflict with Kafka)
     environment:
       # Kafka configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -394,7 +394,7 @@ services:
       API_PORT: 8002
       
       # Monitoring
-      METRICS_PORT: 9092
+      METRICS_PORT: 9095
       LOG_LEVEL: INFO
     volumes:
       - rto-logs:/app/logs
@@ -444,7 +444,7 @@ services:
     container_name: fidps-pdm-service
     ports:
       - "8003:8003"  # API port
-      - "9093:9093"  # Prometheus metrics
+      - "9096:9096"  # Prometheus metrics (changed from 9093)
     environment:
       # Kafka configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -468,7 +468,7 @@ services:
       API_PORT: 8003
       
       # Monitoring
-      METRICS_PORT: 9093
+      METRICS_PORT: 9096
       LOG_LEVEL: INFO
     volumes:
       - pdm-logs:/app/logs
