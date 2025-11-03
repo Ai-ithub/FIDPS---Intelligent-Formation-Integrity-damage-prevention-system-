@@ -3,7 +3,7 @@
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
@@ -27,9 +27,6 @@ import queue
 # Monitoring and metrics
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from prometheus_client.core import CollectorRegistry
-
-# Configuration
-from config.api_config import APIConfig
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -101,40 +98,108 @@ class DashboardMetrics(BaseModel):
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.subscriptions: Dict[str, List[str]] = {}  # client_id -> [subscription_types]
         self.data_queue = queue.Queue()
+        self._client_id_counter = 0  # Monotonically increasing counter to prevent ID collisions
     
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, client_id: str = None):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        if not client_id:
+            # Use monotonically increasing counter to ensure unique IDs even after disconnections
+            # This prevents collisions when clients disconnect and reconnect
+            self._client_id_counter += 1
+            client_id = f"client_{self._client_id_counter}"
+        
+        # Ensure client_id is unique (in case it was provided but already exists)
+        while client_id in self.active_connections:
+            self._client_id_counter += 1
+            client_id = f"client_{self._client_id_counter}"
+        
+        self.active_connections[client_id] = websocket
+        self.subscriptions[client_id] = []
         active_connections.set(len(self.active_connections))
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        logger.info(f"WebSocket connected ({client_id}). Total connections: {len(self.active_connections)}")
+        return client_id
     
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            active_connections.set(len(self.active_connections))
-            logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+    def disconnect(self, websocket_or_client_id):
+        # Handle both WebSocket and client_id for backward compatibility
+        if isinstance(websocket_or_client_id, str):
+            client_id = websocket_or_client_id
+        else:
+            # Find client_id by WebSocket
+            client_id = None
+            for cid, ws in self.active_connections.items():
+                if ws == websocket_or_client_id:
+                    client_id = cid
+                    break
+        
+        if client_id and client_id in self.active_connections:
+            del self.active_connections[client_id]
+        if client_id and client_id in self.subscriptions:
+            del self.subscriptions[client_id]
+        active_connections.set(len(self.active_connections))
+        if client_id:
+            logger.info(f"WebSocket disconnected ({client_id}). Total connections: {len(self.active_connections)}")
     
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        try:
-            await websocket.send_text(message)
-        except Exception as e:
-            logger.error(f"Error sending message to WebSocket: {e}")
-            self.disconnect(websocket)
+    async def send_personal_message(self, message: str, websocket_or_client_id):
+        if isinstance(websocket_or_client_id, str):
+            client_id = websocket_or_client_id
+            if client_id in self.active_connections:
+                try:
+                    await self.active_connections[client_id].send_text(message)
+                except Exception as e:
+                    logger.error(f"Error sending message to client {client_id}: {e}")
+                    self.disconnect(client_id)
+        else:
+            websocket = websocket_or_client_id
+            try:
+                await websocket.send_text(message)
+            except Exception as e:
+                logger.error(f"Error sending message to WebSocket: {e}")
+                self.disconnect(websocket)
     
     async def broadcast(self, message: str):
         disconnected = []
-        for connection in self.active_connections:
+        for client_id, websocket in self.active_connections.items():
             try:
-                await connection.send_text(message)
+                await websocket.send_text(message)
             except Exception as e:
-                logger.error(f"Error broadcasting to WebSocket: {e}")
-                disconnected.append(connection)
+                logger.error(f"Error broadcasting to client {client_id}: {e}")
+                disconnected.append(client_id)
         
         # Remove disconnected connections
-        for conn in disconnected:
-            self.disconnect(conn)
+        for client_id in disconnected:
+            self.disconnect(client_id)
+    
+    def add_subscription(self, client_id: str, subscription_type: str):
+        """Add a subscription for a client"""
+        if client_id in self.subscriptions:
+            if subscription_type not in self.subscriptions[client_id]:
+                self.subscriptions[client_id].append(subscription_type)
+                logger.info(f"Client {client_id} subscribed to {subscription_type}")
+    
+    def remove_subscription(self, client_id: str, subscription_type: str):
+        """Remove a subscription for a client"""
+        if client_id in self.subscriptions:
+            if subscription_type in self.subscriptions[client_id]:
+                self.subscriptions[client_id].remove(subscription_type)
+                logger.info(f"Client {client_id} unsubscribed from {subscription_type}")
+    
+    async def broadcast_to_subscription(self, subscription_type: str, message: str):
+        """Broadcast message only to clients subscribed to a specific type"""
+        disconnected = []
+        for client_id, subs in self.subscriptions.items():
+            if subscription_type in subs and client_id in self.active_connections:
+                try:
+                    await self.active_connections[client_id].send_text(message)
+                except Exception as e:
+                    logger.error(f"Error broadcasting to client {client_id}: {e}")
+                    disconnected.append(client_id)
+        
+        # Remove disconnected connections
+        for client_id in disconnected:
+            self.disconnect(client_id)
 
 # Database connections
 class DatabaseManager:
@@ -398,20 +463,20 @@ async def api_info():
 # WebSocket endpoint for real-time dashboard updates
 @app.websocket("/ws/dashboard/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocket endpoint for real-time data streaming"""
-    await connection_manager.connect(websocket)
+    """WebSocket endpoint for real-time data streaming (legacy - routes handled in websocket_routes)"""
+    await connection_manager.connect(websocket, client_id)
     try:
         while True:
             # Keep connection alive and handle incoming messages
             data = await websocket.receive_text()
             # Echo back for connection testing
-            await connection_manager.send_personal_message(f"Echo: {data}", websocket)
+            await connection_manager.send_personal_message(f"Echo: {data}", client_id)
     except WebSocketDisconnect:
-        connection_manager.disconnect(websocket)
+        connection_manager.disconnect(client_id)
         logger.info(f"Client {client_id} disconnected")
     except Exception as e:
         logger.error(f"WebSocket error for client {client_id}: {e}")
-        connection_manager.disconnect(websocket)
+        connection_manager.disconnect(client_id)
 
 # API endpoint to get latest sensor data
 @app.get("/api/v1/sensor-data/latest/{well_id}")
