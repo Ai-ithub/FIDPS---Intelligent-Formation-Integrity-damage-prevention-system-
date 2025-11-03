@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+*.csv
+*.parquet
+*.pickle
+
+# Docker
+.dockerignore
+
+# Machine Learning
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.pb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Project specific
+ml_models/
+ml_cache/
+dashboard_logs/
+influxdb_data/
+postgres-data/
+mongodb-data/
+kafka-data/
+zookeeper-data/
+

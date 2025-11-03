@@ -155,7 +155,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - "8080:8080"
+      - "8082:8080"  # Changed to avoid conflict with ML service
     environment:
       KAFKA_CLUSTERS_0_NAME: fidps-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
@@ -164,6 +164,7 @@ services:
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
     networks:
       - fidps-network
+    restart: unless-stopped
 
   # Prometheus for monitoring
   prometheus:
@@ -194,13 +195,14 @@ services:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: fidps_grafana_password
+      GF_SECURITY_ADMIN_PASSWORD: fidps_grafana_password_2024
       GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - fidps-network
+    restart: unless-stopped
 
   # Flink Data Validation Service
   flink-validation:
@@ -249,48 +251,47 @@ services:
     container_name: fidps-ml-anomaly-detection
     ports:
       - "8080:8080"  # API endpoint
-      - "8081:8081"  # Admin endpoint
       - "9090:9090"  # Prometheus metrics
     environment:
       # Kafka Configuration
-      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
-      - KAFKA_CONSUMER_GROUP_ID=ml-anomaly-detection-group
-      - KAFKA_INPUT_TOPICS=mwd-lwd-data,csv-mwd-lwd-data,witsml-data,data-validation-results
-      - KAFKA_OUTPUT_TOPICS=ml-anomalies,ml-predictions,ml-alerts
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP_ID: ml-anomaly-detection-group
+      KAFKA_INPUT_TOPICS: mwd-lwd-data,csv-mwd-lwd-data,witsml-data,data-validation-results
+      KAFKA_OUTPUT_TOPICS: ml-anomalies,ml-predictions,ml-alerts,damage-predictions
       
       # Database Configuration
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fidps_operational
+      POSTGRES_USER: fidps_user
+      POSTGRES_PASSWORD: fidps_password
       
-      - MONGODB_HOST=mongodb
-      - MONGODB_PORT=27017
-      - MONGODB_DB=${MONGODB_DB}
-      - MONGODB_USER=${MONGODB_USER}
-      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      MONGODB_DB: fidps_anomalies
+      MONGODB_USER: fidps_admin
+      MONGODB_PASSWORD: fidps_mongo_password
       
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: fidps_redis_password
       
       # ML Configuration
-      - ML_MODEL_PATH=/app/models
-      - ML_CACHE_PATH=/app/cache
-      - ML_LOG_LEVEL=INFO
-      - ML_BATCH_SIZE=100
-      - ML_PREDICTION_INTERVAL=30
-      - ML_RETRAIN_INTERVAL=3600
+      ML_MODEL_PATH: /app/models
+      ML_CACHE_PATH: /app/cache
+      ML_LOG_LEVEL: INFO
+      ML_BATCH_SIZE: 100
+      ML_PREDICTION_INTERVAL: 30
+      ML_RETRAIN_INTERVAL: 3600
       
       # API Configuration
-      - API_HOST=0.0.0.0
-      - API_PORT=8080
-      - API_WORKERS=4
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+      API_WORKERS: 4
       
       # Monitoring
-      - PROMETHEUS_PORT=9090
-      - HEALTH_CHECK_INTERVAL=30
+      PROMETHEUS_PORT: 9090
+      HEALTH_CHECK_INTERVAL: 30
     volumes:
       - ml_models:/app/models
       - ml_cache:/app/cache
@@ -309,6 +310,181 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    restart: unless-stopped
+
+  # Frontend React Dashboard Service
+  frontend-react:
+    build:
+      context: ./frontend-react
+      dockerfile: Dockerfile
+    container_name: fidps-frontend-react
+    ports:
+      - "80:80"  # Frontend web server
+    depends_on:
+      - api-dashboard
+    networks:
+      - fidps-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # InfluxDB Time-Series Database (FR-1.7)
+  influxdb:
+    image: influxdb:2.7
+    container_name: fidps-influxdb
+    ports:
+      - "8086:8086"  # HTTP API
+      - "8089:8089/udp"  # UDP interface
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: fidps_user
+      DOCKER_INFLUXDB_INIT_PASSWORD: fidps_influx_password_2024
+      DOCKER_INFLUXDB_INIT_ORG: fidps
+      DOCKER_INFLUXDB_INIT_BUCKET: fidps_metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: fidps_influx_admin_token_2024
+      INFLUXDB_DB: fidps_metrics
+      INFLUXDB_USER: fidps_user
+      INFLUXDB_USER_PASSWORD: fidps_influx_password_2024
+      INFLUXDB_ADMIN_USER: admin
+      INFLUXDB_ADMIN_PASSWORD: fidps_influx_password_2024
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    networks:
+      - fidps-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # RTO Service (Real-Time Optimization)
+  rto-service:
+    build:
+      context: ./rto-service
+      dockerfile: Dockerfile
+    container_name: fidps-rto-service
+    ports:
+      - "8002:8002"  # API port
+      - "9092:9092"  # Prometheus metrics
+    environment:
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: rto-service
+      
+      # Database connections
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fidps_operational
+      POSTGRES_USER: fidps_user
+      POSTGRES_PASSWORD: fidps_password
+      
+      # InfluxDB for time-series metrics
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: fidps_influx_admin_token_2024
+      INFLUXDB_ORG: fidps
+      INFLUXDB_BUCKET: fidps_metrics
+      
+      # API configuration
+      API_HOST: 0.0.0.0
+      API_PORT: 8002
+      
+      # Monitoring
+      METRICS_PORT: 9092
+      LOG_LEVEL: INFO
+    volumes:
+      - rto-logs:/app/logs
+    networks:
+      - fidps-network
+    depends_on:
+      - kafka
+      - postgres
+      - influxdb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # InfluxDB Connector (Kafka to InfluxDB)
+  influxdb-connector:
+    build:
+      context: ./influxdb-connector
+      dockerfile: Dockerfile
+    container_name: fidps-influxdb-connector
+    environment:
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      
+      # InfluxDB configuration
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: fidps_influx_admin_token_2024
+      INFLUXDB_ORG: fidps
+      INFLUXDB_BUCKET: fidps_metrics
+      
+      LOG_LEVEL: INFO
+    networks:
+      - fidps-network
+    depends_on:
+      - kafka
+      - influxdb
+    restart: unless-stopped
+
+  # PdM Service (Predictive Maintenance)
+  pdm-service:
+    build:
+      context: ./pdm-service
+      dockerfile: Dockerfile
+    container_name: fidps-pdm-service
+    ports:
+      - "8003:8003"  # API port
+      - "9093:9093"  # Prometheus metrics
+    environment:
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: pdm-service
+      
+      # Database connections
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fidps_operational
+      POSTGRES_USER: fidps_user
+      POSTGRES_PASSWORD: fidps_password
+      
+      # InfluxDB for time-series metrics
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: fidps_influx_admin_token_2024
+      INFLUXDB_ORG: fidps
+      INFLUXDB_BUCKET: fidps_metrics
+      
+      # API configuration
+      API_HOST: 0.0.0.0
+      API_PORT: 8003
+      
+      # Monitoring
+      METRICS_PORT: 9093
+      LOG_LEVEL: INFO
+    volumes:
+      - pdm-logs:/app/logs
+    networks:
+      - fidps-network
+    depends_on:
+      - kafka
+      - postgres
+      - influxdb
+      - ml-anomaly-detection
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   # API Dashboard Service
@@ -397,6 +573,10 @@ volumes:
   ml_cache:
   ml_logs:
   dashboard_logs:
+  influxdb-data:
+  influxdb-config:
+  rto-logs:
+  pdm-logs:
 
 networks:
   fidps-network:
