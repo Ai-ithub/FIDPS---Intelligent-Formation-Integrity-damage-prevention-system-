@@ -56,7 +56,8 @@ class KafkaMLService:
         self.producer = None
         
         # Database connections
-        self.postgres_conn = None
+        self.postgres_pool = None  # Connection pool (preferred)
+        self.postgres_conn = None  # Single connection (deprecated, for backward compatibility)
         self.mongo_client = None
         self.redis_client = None
         
@@ -168,15 +169,21 @@ class KafkaMLService:
     def _connect_databases(self) -> None:
         """Initialize database connections"""
         try:
-            # PostgreSQL
+            # PostgreSQL with connection pooling
+            from utils.db_pool import PostgreSQLPool
             pg_config = self.config['databases']['postgres']
-            self.postgres_conn = psycopg2.connect(
+            self.postgres_pool = PostgreSQLPool(
                 host=pg_config['host'],
                 port=pg_config['port'],
                 database=pg_config['database'],
                 user=pg_config['username'],
-                password=pg_config['password']
+                password=pg_config['password'],
+                min_size=int(os.getenv('DB_CONNECTION_POOL_MIN_SIZE', '2')),
+                max_size=int(os.getenv('DB_CONNECTION_POOL_MAX_SIZE', '10'))
             )
+            self.postgres_pool.initialize()
+            # Keep a reference for backward compatibility (deprecated)
+            self.postgres_conn = self.postgres_pool.get_connection()
             
             # MongoDB
             mongo_config = self.config['databases']['mongodb']
@@ -383,8 +390,29 @@ class KafkaMLService:
             # Start with current data
             training_data = current_df.copy()
             
-            # Get historical data from PostgreSQL
-            if self.postgres_conn:
+            # Get historical data from PostgreSQL using connection pool
+            if hasattr(self, 'postgres_pool') and self.postgres_pool:
+                conn = None
+                try:
+                    conn = self.postgres_pool.get_connection()
+                    query = """
+                    SELECT timestamp, well_id, depth, hook_load, weight_on_bit, torque, rpm, 
+                           flow_rate, standpipe_pressure, mud_weight, temperature, gamma_ray, 
+                           resistivity, neutron_porosity, bulk_density, caliper
+                    FROM real_time_mwd_lwd_data 
+                    WHERE timestamp >= NOW() - INTERVAL '7 days'
+                    ORDER BY timestamp DESC
+                    LIMIT 5000
+                    """
+                    
+                    historical_df = pd.read_sql(query, conn)
+                    if not historical_df.empty:
+                        training_data = pd.concat([training_data, historical_df], ignore_index=True)
+                finally:
+                    if conn:
+                        self.postgres_pool.put_connection(conn)
+            elif hasattr(self, 'postgres_conn') and self.postgres_conn:
+                # Fallback to old connection (backward compatibility)
                 query = """
                 SELECT timestamp, well_id, depth, hook_load, weight_on_bit, torque, rpm, 
                        flow_rate, standpipe_pressure, mud_weight, temperature, gamma_ray, 
@@ -604,7 +632,9 @@ class KafkaMLService:
         if self.producer:
             self.producer.close()
         
-        if self.postgres_conn:
+        if hasattr(self, 'postgres_pool') and self.postgres_pool:
+            self.postgres_pool.close_all()
+        elif hasattr(self, 'postgres_conn') and self.postgres_conn:
             self.postgres_conn.close()
         
         if self.mongo_client:

@@ -13,13 +13,14 @@ import json
 import logging
 from datetime import datetime, timedelta
 import os
+import time
 from contextlib import asynccontextmanager
 
 # Database and messaging imports
 import asyncpg
 import motor.motor_asyncio
 import aioredis
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import KafkaError
 import threading
 import queue
@@ -28,9 +29,15 @@ import queue
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from prometheus_client.core import CollectorRegistry
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize structured logging
+try:
+    from utils.logging_config import setup_logging, get_logger
+    setup_logging()
+    logger = get_logger(__name__)
+except ImportError:
+    # Fallback to basic logging if structured logging not available
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
 # Metrics
 registry = CollectorRegistry()
@@ -210,38 +217,84 @@ class DatabaseManager:
         self.redis_client = None
     
     async def initialize(self):
-        # PostgreSQL connection
-        try:
+        # Import retry utilities
+        from utils.retry import retry_async, get_retry_config
+        import asyncpg.exceptions as pg_exceptions
+        import motor.errors as mongo_errors
+        import redis.exceptions as redis_exceptions
+        
+        retry_config = get_retry_config()
+        
+        # PostgreSQL connection with retry
+        async def init_postgres():
             self.postgres_pool = await asyncpg.create_pool(
                 host=os.getenv('POSTGRES_HOST', 'localhost'),
                 port=int(os.getenv('POSTGRES_PORT', 5432)),
                 database=os.getenv('POSTGRES_DB', 'fidps'),
                 user=os.getenv('POSTGRES_USER', 'fidps_user'),
                 password=os.getenv('POSTGRES_PASSWORD', 'fidps_password'),
-                min_size=5,
-                max_size=20
+                min_size=int(os.getenv('DB_CONNECTION_POOL_MIN_SIZE', '5')),
+                max_size=int(os.getenv('DB_CONNECTION_POOL_MAX_SIZE', '20'))
             )
             logger.info("PostgreSQL connection pool created")
-        except Exception as e:
-            logger.error(f"Failed to create PostgreSQL connection pool: {e}")
         
-        # MongoDB connection
         try:
+            await retry_async(
+                init_postgres,
+                config=retry_config,
+                exception_types=(
+                    pg_exceptions.PostgresConnectionError,
+                    pg_exceptions.PostgresError,
+                    ConnectionError,
+                    OSError
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to create PostgreSQL connection pool after retries: {e}")
+        
+        # MongoDB connection with retry
+        async def init_mongodb():
             mongodb_url = f"mongodb://{os.getenv('MONGODB_USER', 'fidps_user')}:{os.getenv('MONGODB_PASSWORD', 'fidps_password')}@{os.getenv('MONGODB_HOST', 'localhost')}:{os.getenv('MONGODB_PORT', 27017)}"
             self.mongodb_client = motor.motor_asyncio.AsyncIOMotorClient(mongodb_url)
             self.mongodb_db = self.mongodb_client[os.getenv('MONGODB_DB', 'fidps')]
+            # Test connection
+            await self.mongodb_client.admin.command('ping')
             logger.info("MongoDB connection established")
-        except Exception as e:
-            logger.error(f"Failed to connect to MongoDB: {e}")
         
-        # Redis connection
         try:
-            self.redis_client = await aioredis.from_url(
-                f"redis://:{os.getenv('REDIS_PASSWORD', 'redis_password')}@{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}"
+            await retry_async(
+                init_mongodb,
+                config=retry_config,
+                exception_types=(
+                    mongo_errors.ServerSelectionTimeoutError,
+                    ConnectionError,
+                    OSError
+                )
             )
-            logger.info("Redis connection established")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error(f"Failed to connect to MongoDB after retries: {e}")
+        
+        # Redis connection with retry
+        async def init_redis():
+            redis_url = f"redis://:{os.getenv('REDIS_PASSWORD', 'redis_password')}@{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}"
+            self.redis_client = await aioredis.from_url(redis_url)
+            # Test connection
+            await self.redis_client.ping()
+            logger.info("Redis connection established")
+        
+        try:
+            await retry_async(
+                init_redis,
+                config=retry_config,
+                exception_types=(
+                    redis_exceptions.ConnectionError,
+                    redis_exceptions.TimeoutError,
+                    ConnectionError,
+                    OSError
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis after retries: {e}")
     
     async def close(self):
         if self.postgres_pool:
@@ -286,14 +339,21 @@ class KafkaDataConsumer:
                 bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
                 group_id=f'api-dashboard-{topic}',
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                auto_offset_reset='latest'
+                auto_offset_reset='latest',
+                enable_auto_commit=False  # Manual commit for error handling
             )
             
             self.consumers[topic] = consumer
+            dlq_topic = f"{topic}-dlq"  # Dead Letter Queue topic
+            
+            max_retries = 3
+            retry_count = {}
             
             for message in consumer:
                 if not self.running:
                     break
+                
+                message_id = f"{message.topic}_{message.partition}_{message.offset}"
                 
                 try:
                     data = message.value
@@ -315,11 +375,68 @@ class KafkaDataConsumer:
                         asyncio.get_event_loop()
                     )
                     
+                    # Commit offset on success
+                    consumer.commit()
+                    
+                    # Reset retry count on success
+                    if message_id in retry_count:
+                        del retry_count[message_id]
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error for message from {topic}: {e}")
+                    # Send to DLQ immediately for JSON errors
+                    self._send_to_dlq(dlq_topic, message, f"JSON decode error: {str(e)}")
+                    consumer.commit()
+                    
                 except Exception as e:
                     logger.error(f"Error processing message from {topic}: {e}")
                     
+                    # Retry logic
+                    current_retries = retry_count.get(message_id, 0)
+                    if current_retries < max_retries:
+                        retry_count[message_id] = current_retries + 1
+                        logger.info(f"Retrying message {message_id} (attempt {current_retries + 1}/{max_retries})")
+                        # Don't commit - will retry on next poll
+                        time.sleep(2 ** current_retries)  # Exponential backoff
+                    else:
+                        # Max retries reached - send to DLQ
+                        logger.error(f"Max retries reached for message {message_id}, sending to DLQ")
+                        self._send_to_dlq(dlq_topic, message, f"Processing error after {max_retries} retries: {str(e)}")
+                        consumer.commit()
+                        if message_id in retry_count:
+                            del retry_count[message_id]
+                    
         except Exception as e:
             logger.error(f"Error in Kafka consumer for {topic}: {e}")
+    
+    def _send_to_dlq(self, dlq_topic: str, original_message, error_reason: str):
+        """Send failed message to Dead Letter Queue"""
+        try:
+            # Create DLQ producer if not exists
+            if not hasattr(self, 'dlq_producer'):
+                from kafka import KafkaProducer
+                self.dlq_producer = KafkaProducer(
+                    bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
+                    value_serializer=lambda x: json.dumps(x).encode('utf-8')
+                )
+            
+            # Send to DLQ with error metadata
+            dlq_message = {
+                'original_topic': original_message.topic,
+                'original_partition': original_message.partition,
+                'original_offset': original_message.offset,
+                'original_timestamp': original_message.timestamp,
+                'error_reason': error_reason,
+                'failed_at': datetime.now().isoformat(),
+                'original_value': original_message.value if hasattr(original_message.value, '__dict__') else str(original_message.value)
+            }
+            
+            self.dlq_producer.send(dlq_topic, value=dlq_message)
+            self.dlq_producer.flush()
+            logger.info(f"Message sent to DLQ: {dlq_topic}")
+            
+        except Exception as e:
+            logger.error(f"Failed to send message to DLQ: {e}")
     
     async def _cache_data(self, topic: str, data: dict):
         if self.db_manager.redis_client:
@@ -376,16 +493,21 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Get allowed origins from environment variable, default to localhost for development
+cors_origins = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:80,http://localhost"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[origin.strip() for origin in cors_origins],  # Only allow specified origins
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Security
-security = HTTPBearer()
+# Security - JWT authentication is handled in auth.py
+# Import auth dependencies when needed: from auth import RequireAny, RequireAdmin, etc.
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -408,6 +530,13 @@ async def metrics_middleware(request, call_next):
 from routes.api_routes import router as api_router
 from routes.websocket_routes import router as websocket_router
 
+# Include auth router
+try:
+    from auth_routes import router as auth_router
+    app.include_router(auth_router)
+except ImportError:
+    logger.warning("Auth routes not available - authentication disabled")
+
 app.include_router(api_router)
 app.include_router(websocket_router)
 
@@ -417,21 +546,78 @@ from fastapi import Request
 
 templates = Jinja2Templates(directory="templates")
 
-# Health check endpoint
+# Health check endpoints
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Liveness probe - checks if service is running"""
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0",
-        "services": {
-            "postgres": "connected" if db_manager.postgres_pool else "disconnected",
-            "mongodb": "connected" if db_manager.mongodb_client else "disconnected",
-            "redis": "connected" if db_manager.redis_client else "disconnected",
-            "kafka": "connected" if kafka_consumer and kafka_consumer.running else "disconnected"
-        }
+        "version": "1.0.0"
     }
+
+@app.get("/health/ready")
+async def readiness_check():
+    """Readiness probe - checks if service is ready to accept traffic"""
+    import asyncpg.exceptions as pg_exceptions
+    
+    services_status = {}
+    overall_healthy = True
+    
+    # Check PostgreSQL
+    if db_manager.postgres_pool:
+        try:
+            async with db_manager.postgres_pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            services_status["postgres"] = "connected"
+        except Exception as e:
+            services_status["postgres"] = f"error: {str(e)}"
+            overall_healthy = False
+    else:
+        services_status["postgres"] = "disconnected"
+        overall_healthy = False
+    
+    # Check MongoDB
+    if db_manager.mongodb_client:
+        try:
+            await db_manager.mongodb_client.admin.command('ping')
+            services_status["mongodb"] = "connected"
+        except Exception as e:
+            services_status["mongodb"] = f"error: {str(e)}"
+            overall_healthy = False
+    else:
+        services_status["mongodb"] = "disconnected"
+        overall_healthy = False
+    
+    # Check Redis
+    if db_manager.redis_client:
+        try:
+            await db_manager.redis_client.ping()
+            services_status["redis"] = "connected"
+        except Exception as e:
+            services_status["redis"] = f"error: {str(e)}"
+            overall_healthy = False
+    else:
+        services_status["redis"] = "disconnected"
+        overall_healthy = False
+    
+    # Check Kafka
+    if kafka_consumer and kafka_consumer.running:
+        services_status["kafka"] = "connected"
+    else:
+        services_status["kafka"] = "disconnected"
+        overall_healthy = False
+    
+    status_code = 200 if overall_healthy else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if overall_healthy else "not_ready",
+            "timestamp": datetime.now().isoformat(),
+            "version": "1.0.0",
+            "services": services_status
+        }
+    )
 
 # Metrics endpoint
 @app.get("/metrics")

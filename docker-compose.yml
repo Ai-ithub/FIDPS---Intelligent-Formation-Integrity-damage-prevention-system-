@@ -89,10 +89,12 @@ services:
     container_name: fidps-postgres
     ports:
       - "5432:5432"
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: fidps_operational
-      POSTGRES_USER: fidps_user
-      POSTGRES_PASSWORD: fidps_password
+      POSTGRES_DB: ${POSTGRES_DB:-fidps_operational}
+      POSTGRES_USER: ${POSTGRES_USER:-fidps_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fidps_password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -107,10 +109,12 @@ services:
     container_name: fidps-mongodb
     ports:
       - "27017:27017"
+    env_file:
+      - .env
     environment:
-      MONGO_INITDB_ROOT_USERNAME: fidps_admin
-      MONGO_INITDB_ROOT_PASSWORD: fidps_mongo_password
-      MONGO_INITDB_DATABASE: fidps_anomalies
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-fidps_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-fidps_mongo_password}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB:-fidps_anomalies}
     volumes:
       - mongodb-data:/data/db
       - ./mongo/init:/docker-entrypoint-initdb.d
@@ -125,9 +129,11 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+    env_file:
+      - .env
     environment:
-      MINIO_ROOT_USER: fidps_minio_admin
-      MINIO_ROOT_PASSWORD: fidps_minio_password
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-fidps_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-fidps_minio_password}
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
@@ -141,7 +147,9 @@ services:
     container_name: fidps-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --requirepass fidps_redis_password
+    env_file:
+      - .env
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-fidps_redis_password}
     volumes:
       - redis-data:/data
     networks:
@@ -193,9 +201,11 @@ services:
     container_name: fidps-grafana
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: fidps_grafana_password_2024
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-fidps_grafana_password_2024}
       GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -219,12 +229,12 @@ services:
       - FLINK_PROPERTIES=jobmanager.rpc.address:flink-validation
       - JOB_MANAGER_RPC_ADDRESS=flink-validation
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - POSTGRES_URL=jdbc:postgresql://postgres:5432/fidps_operational
-      - POSTGRES_USER=fidps_user
-      - POSTGRES_PASSWORD=fidps_password
-      - MONGO_URL=mongodb://fidps_admin:fidps_mongo_password@mongodb:27017/fidps_anomalies?authSource=admin
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-fidps_operational}
+      - POSTGRES_USER=${POSTGRES_USER:-fidps_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-fidps_password}
+      - MONGO_URL=mongodb://${MONGODB_USER:-fidps_admin}:${MONGODB_PASSWORD:-fidps_mongo_password}@mongodb:27017/${MONGODB_DB:-fidps_anomalies}?authSource=admin
       - REDIS_URL=redis://redis:6379
-      - REDIS_PASSWORD=fidps_redis_password
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-fidps_redis_password}
     volumes:
       - flink-data:/opt/flink/app/data
       - flink-logs:/opt/flink/app/logs
@@ -261,20 +271,20 @@ services:
       
       # Database Configuration
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: fidps_operational
-      POSTGRES_USER: fidps_user
-      POSTGRES_PASSWORD: fidps_password
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-fidps_operational}
+      POSTGRES_USER: ${POSTGRES_USER:-fidps_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fidps_password}
       
       MONGODB_HOST: mongodb
-      MONGODB_PORT: 27017
-      MONGODB_DB: fidps_anomalies
-      MONGODB_USER: fidps_admin
-      MONGODB_PASSWORD: fidps_mongo_password
+      MONGODB_PORT: ${MONGODB_PORT:-27017}
+      MONGODB_DB: ${MONGODB_DB:-fidps_anomalies}
+      MONGODB_USER: ${MONGODB_USER:-fidps_admin}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD:-fidps_mongo_password}
       
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: fidps_redis_password
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-fidps_redis_password}
       
       # ML Configuration
       ML_MODEL_PATH: /app/models
@@ -319,7 +329,7 @@ services:
       dockerfile: Dockerfile
     container_name: fidps-frontend-react
     ports:
-      - "80:80"  # Frontend web server
+      - "3000:80"  # Frontend web server (changed from 80 to 3000 to avoid permission issues)
     depends_on:
       - api-dashboard
     networks:
@@ -337,18 +347,20 @@ services:
     ports:
       - "8086:8086"  # HTTP API
       - "8089:8089/udp"  # UDP interface
+    env_file:
+      - .env
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: fidps_user
-      DOCKER_INFLUXDB_INIT_PASSWORD: fidps_influx_password_2024
-      DOCKER_INFLUXDB_INIT_ORG: fidps
-      DOCKER_INFLUXDB_INIT_BUCKET: fidps_metrics
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: fidps_influx_admin_token_2024
-      INFLUXDB_DB: fidps_metrics
-      INFLUXDB_USER: fidps_user
-      INFLUXDB_USER_PASSWORD: fidps_influx_password_2024
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER:-fidps_user}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:-fidps_influx_password_2024}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-fidps}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-fidps_metrics}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-fidps_influx_admin_token_2024}
+      INFLUXDB_DB: ${INFLUXDB_BUCKET:-fidps_metrics}
+      INFLUXDB_USER: ${INFLUXDB_USER:-fidps_user}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_PASSWORD:-fidps_influx_password_2024}
       INFLUXDB_ADMIN_USER: admin
-      INFLUXDB_ADMIN_PASSWORD: fidps_influx_password_2024
+      INFLUXDB_ADMIN_PASSWORD: ${INFLUXDB_PASSWORD:-fidps_influx_password_2024}
     volumes:
       - influxdb-data:/var/lib/influxdb2
       - influxdb-config:/etc/influxdb2
@@ -378,16 +390,16 @@ services:
       
       # Database connections
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: fidps_operational
-      POSTGRES_USER: fidps_user
-      POSTGRES_PASSWORD: fidps_password
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-fidps_operational}
+      POSTGRES_USER: ${POSTGRES_USER:-fidps_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fidps_password}
       
       # InfluxDB for time-series metrics
-      INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: fidps_influx_admin_token_2024
-      INFLUXDB_ORG: fidps
-      INFLUXDB_BUCKET: fidps_metrics
+      INFLUXDB_URL: ${INFLUXDB_URL:-http://influxdb:8086}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-fidps_influx_admin_token_2024}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-fidps}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-fidps_metrics}
       
       # API configuration
       API_HOST: 0.0.0.0
@@ -452,16 +464,16 @@ services:
       
       # Database connections
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: fidps_operational
-      POSTGRES_USER: fidps_user
-      POSTGRES_PASSWORD: fidps_password
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-fidps_operational}
+      POSTGRES_USER: ${POSTGRES_USER:-fidps_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fidps_password}
       
       # InfluxDB for time-series metrics
-      INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: fidps_influx_admin_token_2024
-      INFLUXDB_ORG: fidps
-      INFLUXDB_BUCKET: fidps_metrics
+      INFLUXDB_URL: ${INFLUXDB_URL:-http://influxdb:8086}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-fidps_influx_admin_token_2024}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-fidps}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-fidps_metrics}
       
       # API configuration
       API_HOST: 0.0.0.0
@@ -504,10 +516,10 @@ services:
       
       # Database connections
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: fidps_operational
-      POSTGRES_USER: fidps_user
-      POSTGRES_PASSWORD: fidps_password
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-fidps_operational}
+      POSTGRES_USER: ${POSTGRES_USER:-fidps_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fidps_password}
       
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017

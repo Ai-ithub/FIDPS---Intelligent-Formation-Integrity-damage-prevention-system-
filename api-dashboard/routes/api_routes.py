@@ -13,13 +13,15 @@ from ..models.api_models import (
     DrillingSensorData, AnomalyAlert, ValidationResult, 
     SystemStatus, DashboardMetrics
 )
+from ..utils.rate_limiter import check_rate_limit, Depends as RateLimitDepends
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["API"])
 
 # Dashboard Overview
 @router.get("/dashboard/overview", response_model=DashboardMetrics)
-async def get_dashboard_overview():
+async def get_dashboard_overview(request: Request, _: bool = RateLimitDepends(check_rate_limit)):
     """Get dashboard overview metrics"""
     try:
         # Get data from Redis cache and databases

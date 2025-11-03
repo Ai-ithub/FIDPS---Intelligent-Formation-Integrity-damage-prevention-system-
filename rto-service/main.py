@@ -372,8 +372,8 @@ postgres_pool: Optional[asyncpg.Pool] = None
 kafka_consumer: Optional[KafkaConsumer] = None
 kafka_producer: Optional[KafkaProducer] = None
 
-# In-memory store for recommendations (optional, primary storage is database)
-recommendations_store: Dict[str, RTORecovery] = {}
+# Note: Recommendations are stored in PostgreSQL database (rto_recommendations table)
+# No in-memory storage needed - all data persisted in database
 
 async def setup_database():
     """Setup database connection"""

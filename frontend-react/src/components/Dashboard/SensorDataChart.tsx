@@ -1,7 +1,7 @@
 import { Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale } from 'chart.js'
 import 'chartjs-adapter-date-fns'
-import { useWebSocketStore } from '../../store/useWebSocketStore'
+// import { useWebSocketStore } from '../../store/useWebSocketStore' // Will be used when WebSocket is connected
 
 ChartJS.register(
   CategoryScale,
@@ -15,7 +15,7 @@ ChartJS.register(
 )
 
 const SensorDataChart = () => {
-  const { sensorData } = useWebSocketStore()
+  // const { sensorData } = useWebSocketStore() // Will be used when WebSocket is connected
 
   // Sample data for demonstration (replace with real data from WebSocket)
   const sampleData = {

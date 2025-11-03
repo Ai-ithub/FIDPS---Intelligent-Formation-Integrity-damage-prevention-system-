@@ -1,0 +1,54 @@
+═══════════════════════════════════════════════════════════
+    FIDPS Dashboard - لینک‌های دسترسی
+═══════════════════════════════════════════════════════════
+
+🎨 Frontend Dashboard (React)
+   URL: http://localhost:3000
+   توضیحات: داشبورد اصلی React با رابط کاربری مدرن
+   وضعیت: ✅ در حال اجرا
+
+⚙️ API Dashboard (FastAPI Backend)
+   URL: http://localhost:8000
+   توضیحات: بک‌اند FastAPI برای API endpoints
+   وضعیت: ⚠️ در حال راه‌اندازی
+
+📚 API Documentation (Swagger UI)
+   URL: http://localhost:8000/docs
+   توضیحات: مستندات کامل API با قابلیت تست
+   وضعیت: ⚠️ در حال راه‌اندازی
+
+❤️ Health Check (Liveness)
+   URL: http://localhost:8000/health
+   توضیحات: بررسی وضعیت سلامت سرویس
+
+✅ Health Check (Readiness)
+   URL: http://localhost:8000/health/ready
+   توضیحات: بررسی آمادگی سرویس و وابستگی‌ها
+
+═══════════════════════════════════════════════════════════
+    سرویس‌های پشتیبان
+═══════════════════════════════════════════════════════════
+
+PostgreSQL:    localhost:5432  ✅
+MongoDB:       localhost:27017 ✅
+Redis:         localhost:6379  ✅
+Kafka:         localhost:9092  ✅
+Zookeeper:     localhost:2181  ✅
+
+═══════════════════════════════════════════════════════════
+    دستورات مفید
+═══════════════════════════════════════════════════════════
+
+بررسی وضعیت سرویس‌ها:
+  docker-compose ps
+
+مشاهده لاگ‌های API Dashboard:
+  docker-compose logs -f api-dashboard
+
+مشاهده لاگ‌های Frontend:
+  docker-compose logs -f frontend-react
+
+تست Health Check:
+  curl http://localhost:8000/health
+
+═══════════════════════════════════════════════════════════

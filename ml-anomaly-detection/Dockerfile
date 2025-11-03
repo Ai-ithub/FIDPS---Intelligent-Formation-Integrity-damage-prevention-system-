@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
     gfortran \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*

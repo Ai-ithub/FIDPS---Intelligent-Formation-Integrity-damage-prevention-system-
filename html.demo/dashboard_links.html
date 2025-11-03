@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDPS Dashboard - لینک‌های دسترسی</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .link-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            color: white;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .link-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .link-card .url {
+            font-size: 0.9em;
+            opacity: 0.9;
+            word-break: break-all;
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+        
+        .status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        
+        .status.running {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+        
+        .status.building {
+            background: #FF9800;
+            box-shadow: 0 0 10px #FF9800;
+        }
+        
+        .status.stopped {
+            background: #f44336;
+            box-shadow: 0 0 10px #f44336;
+        }
+        
+        .info-box {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        
+        .info-box h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-box li {
+            padding: 8px 0;
+            color: #666;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-box li:last-child {
+            border-bottom: none;
+        }
+        
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+            width: 100%;
+        }
+        
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 FIDPS Dashboard</h1>
+            <p>لینک‌های دسترسی به داشبورد</p>
+        </div>
+        
+        <div class="links-grid">
+            <a href="http://localhost" target="_blank" class="link-card">
+                <h3>
+                    🎨 Frontend Dashboard
+                    <span class="status building" id="status-frontend"></span>
+                </h3>
+                <p>داشبورد اصلی React</p>
+                <div class="url">http://localhost</div>
+            </a>
+            
+            <a href="http://localhost:8000" target="_blank" class="link-card">
+                <h3>
+                    ⚙️ API Dashboard
+                    <span class="status building" id="status-api"></span>
+                </h3>
+                <p>بک‌اند FastAPI</p>
+                <div class="url">http://localhost:8000</div>
+            </a>
+            
+            <a href="http://localhost:8000/docs" target="_blank" class="link-card">
+                <h3>
+                    📚 API Documentation
+                    <span class="status building" id="status-docs"></span>
+                </h3>
+                <p>Swagger UI</p>
+                <div class="url">http://localhost:8000/docs</div>
+            </a>
+            
+            <a href="http://localhost:8000/health" target="_blank" class="link-card">
+                <h3>
+                    ❤️ Health Check
+                    <span class="status stopped" id="status-health"></span>
+                </h3>
+                <p>وضعیت سلامت سرویس</p>
+                <div class="url">http://localhost:8000/health</div>
+            </a>
+        </div>
+        
+        <div class="info-box">
+            <h3>📋 اطلاعات سرویس‌ها</h3>
+            <ul>
+                <li><strong>PostgreSQL:</strong> localhost:5432</li>
+                <li><strong>MongoDB:</strong> localhost:27017</li>
+                <li><strong>Redis:</strong> localhost:6379</li>
+                <li><strong>Kafka:</strong> localhost:9092</li>
+                <li><strong>Zookeeper:</strong> localhost:2181</li>
+            </ul>
+        </div>
+        
+        <button class="refresh-btn" onclick="checkStatus()">🔄 بررسی وضعیت</button>
+    </div>
+    
+    <script>
+        async function checkStatus() {
+            const endpoints = [
+                { id: 'status-frontend', url: 'http://localhost' },
+                { id: 'status-api', url: 'http://localhost:8000/health' },
+                { id: 'status-docs', url: 'http://localhost:8000/docs' },
+                { id: 'status-health', url: 'http://localhost:8000/health' }
+            ];
+            
+            for (const endpoint of endpoints) {
+                const statusEl = document.getElementById(endpoint.id);
+                try {
+                    const response = await fetch(endpoint.url, { mode: 'no-cors' });
+                    statusEl.className = 'status running';
+                } catch (e) {
+                    statusEl.className = 'status stopped';
+                }
+            }
+        }
+        
+        // Auto-check status on load
+        window.addEventListener('load', () => {
+            setTimeout(checkStatus, 2000);
+            setInterval(checkStatus, 30000); // Check every 30 seconds
+        });
+    </script>
+</body>
+</html>
+

@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  Well,
+  Package,
   AlertTriangle,
-  Flask,
+  Beaker,
   Settings,
   CheckCircle,
   Gauge,
@@ -13,10 +13,10 @@ import {
 const Sidebar = () => {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/wells', icon: Well, label: 'Wells' },
+    { path: '/wells', icon: Package, label: 'Wells' },
     { path: '/realtime-monitoring', icon: Activity, label: 'Real-Time Monitoring' },
     { path: '/anomalies', icon: AlertTriangle, label: 'Anomalies' },
-    { path: '/damage-diagnostics', icon: Flask, label: 'Damage Diagnostics' },
+    { path: '/damage-diagnostics', icon: Beaker, label: 'Damage Diagnostics' },
     { path: '/rto-control', icon: Gauge, label: 'RTO Control' },
     { path: '/data-quality', icon: CheckCircle, label: 'Data Quality' },
     { path: '/system', icon: Settings, label: 'System' },

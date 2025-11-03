@@ -16,7 +16,7 @@ const RealtimeMonitoringPage = () => {
   const [gaugeValues, setGaugeValues] = useState<GaugeValue[]>([])
 
   // Fetch sensor data
-  const { data: sensorData } = useQuery(
+  const { data: _sensorData } = useQuery(
     'sensorData',
     async () => {
       const response = await apiService.getWells()
@@ -155,24 +155,24 @@ const RealtimeMonitoringPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-gray-800 p-4 rounded-lg border-l-4 border-blue-500">
           <p className="text-sm text-gray-400">Active Wells</p>
-          <p className="text-2xl font-bold text-white">{metrics?.active_wells || 0}</p>
+          <p className="text-2xl font-bold text-white">{metrics?.activeWells || 0}</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg border-l-4 border-green-500">
           <p className="text-sm text-gray-400">Data Quality</p>
           <p className="text-2xl font-bold text-white">
-            {((metrics?.data_quality_score || 0) * 100).toFixed(1)}%
+            {((metrics?.dataQualityScore || 0) * 100).toFixed(1)}%
           </p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg border-l-4 border-orange-500">
           <p className="text-sm text-gray-400">Alerts</p>
           <p className="text-2xl font-bold text-white">
-            {metrics?.critical_alerts || 0}
+            {metrics?.criticalAlerts || 0}
           </p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg border-l-4 border-purple-500">
           <p className="text-sm text-gray-400">System Health</p>
           <p className="text-2xl font-bold text-white capitalize">
-            {metrics?.system_health || 'unknown'}
+            {metrics?.systemHealth || 'unknown'}
           </p>
         </div>
       </div>
