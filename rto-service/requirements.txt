@@ -1,0 +1,32 @@
+# FIDPS RTO Service Dependencies
+
+# FastAPI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# Optimization
+scipy==1.11.4
+cvxpy==1.4.1
+numpy==1.25.2
+
+# Data processing
+pandas==2.1.4
+
+# Kafka
+kafka-python==2.0.2
+confluent-kafka==2.3.0
+
+# Database
+asyncpg==0.29.0
+
+# Monitoring
+prometheus-client==0.19.0
+
+# Logging
+structlog==23.2.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+

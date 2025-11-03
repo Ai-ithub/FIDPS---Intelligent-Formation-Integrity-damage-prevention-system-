@@ -1,0 +1,11 @@
+# InfluxDB Connector Dependencies
+
+# InfluxDB Client
+influxdb-client==1.38.0
+
+# Kafka
+kafka-python==2.0.2
+
+# Utilities
+python-dateutil==2.8.2
+
