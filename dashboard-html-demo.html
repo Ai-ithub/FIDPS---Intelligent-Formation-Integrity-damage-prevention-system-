@@ -4,21 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FIDPS - Complete Dashboard Demo</title>
-    <!-- Chart.js - Using CDN with fallback for offline support -->
+    <!-- Chart.js - Using local file with CDN fallback for offline support -->
     <script>
-        // Fallback: If CDN fails, use simplified charting
+        // Try to load Chart.js from local file first, then fallback to CDN
         (function() {
             var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            
+            // First try local file (for offline mode)
+            script.src = './chart.umd.min.js';
+            
             script.onerror = function() {
-                console.warn('Chart.js CDN failed, using fallback');
-                // Create a minimal Chart.js-like object for basic functionality
-                window.Chart = function(ctx) {
-                    this.canvas = ctx.canvas;
-                    this.update = function() {};
-                    return this;
+                console.warn('Local Chart.js not found, trying CDN...');
+                // Fallback to CDN if local file doesn't exist
+                var cdnScript = document.createElement('script');
+                cdnScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                cdnScript.onerror = function() {
+                    console.error('Chart.js CDN also failed. Please download chart.umd.min.js to the same folder as this HTML file for offline use.');
+                    // Create a minimal Chart.js-like object for basic functionality
+                    window.Chart = function(ctx) {
+                        this.canvas = ctx.canvas;
+                        this.update = function() {};
+                        return this;
+                    };
                 };
+                document.head.appendChild(cdnScript);
             };
+            
+            script.onload = function() {
+                console.log('Chart.js loaded from local file (offline mode)');
+            };
+            
             document.head.appendChild(script);
         })();
     </script>
