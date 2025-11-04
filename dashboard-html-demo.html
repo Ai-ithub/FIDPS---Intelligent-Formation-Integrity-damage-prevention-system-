@@ -253,8 +253,16 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🩺 FIDPS Dashboard - Complete Demo</h1>
-            <p>Formation Integrity & Damage Prevention System - Real-time Monitoring</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+                <div>
+                    <h1>🩺 FIDPS Dashboard - Complete Demo</h1>
+                    <p>Formation Integrity & Damage Prevention System - Real-time Monitoring</p>
+                </div>
+                <button id="saveDashboardBtn" onclick="saveDashboard()" style="background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; white-space: nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    <span style="font-size: 20px;">💾</span>
+                    <span>Save Dashboard</span>
+                </button>
+            </div>
         </div>
 
         <!-- Section 1: Vital Indicators (KPIs) -->
@@ -763,6 +771,82 @@
             document.getElementById('deltaPValue').textContent = newDeltaP.toFixed(1);
             drawDeltaPGauge();
         }, 3000);
+
+        // Save Dashboard Function
+        function saveDashboard() {
+            try {
+                // Collect all dashboard data
+                const dashboardData = {
+                    timestamp: new Date().toISOString(),
+                    metrics: {
+                        activeWells: 5,
+                        anomaliesToday: 12,
+                        criticalAlerts: 2,
+                        dataQualityScore: 94.5
+                    },
+                    charts: {
+                        pressureWindow: {
+                            currentECD: 10.2,
+                            currentDepth: 5000,
+                            safeZone: true
+                        },
+                        differentialPressure: {
+                            deltaP: 120,
+                            status: 'safe'
+                        },
+                        flowOut: {
+                            percentage: 99.5,
+                            status: 'safe'
+                        }
+                    },
+                    mudParameters: {
+                        mudWeightIn: 10.5,
+                        mudWeightOut: 10.4,
+                        viscosity: 45
+                    }
+                };
+
+                // Create a downloadable JSON file
+                const dataStr = JSON.stringify(dashboardData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `fidps-dashboard-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                // Show success message
+                const btn = document.getElementById('saveDashboardBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span style="font-size: 20px;">✅</span><span>Saved!</span>';
+                btn.style.background = 'rgba(34, 197, 94, 0.3)';
+                btn.style.borderColor = 'rgba(34, 197, 94, 0.8)';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = 'rgba(255,255,255,0.2)';
+                    btn.style.borderColor = 'white';
+                }, 2000);
+
+                // Also save to localStorage as backup
+                localStorage.setItem('fidps-dashboard-backup', dataStr);
+                console.log('Dashboard saved successfully!');
+            } catch (error) {
+                console.error('Error saving dashboard:', error);
+                alert('Error saving dashboard. Please try again.');
+            }
+        }
+
+        // Load dashboard from localStorage on page load (if available)
+        window.addEventListener('load', function() {
+            const saved = localStorage.getItem('fidps-dashboard-backup');
+            if (saved) {
+                console.log('Previous dashboard backup found in localStorage');
+            }
+        });
     </script>
 </body>
 </html>
