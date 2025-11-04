@@ -133,7 +133,7 @@ const DifferentialPressureGauge = ({
                 <span className="font-bold">&gt; {warningThreshold} psi</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>🚨 Danger (Red):</span>
+                <span>❌ Danger (Red):</span>
                 <span className="font-bold">&gt; {dangerThreshold} psi</span>
               </div>
               <div className="flex items-center justify-between">

@@ -3,11 +3,15 @@ import { Activity } from 'lucide-react'
 interface FlowOutPercentageProps {
   flowIn?: number // Flow In (gpm)
   flowOut?: number // Flow Out (gpm)
+  warningThreshold?: number // Warning threshold for difference
+  dangerThreshold?: number // Danger threshold for difference
 }
 
 const FlowOutPercentage = ({
-  flowIn = 500,
-  flowOut = 495,
+  flowIn = 1000,
+  flowOut = 995,
+  warningThreshold = 5,
+  dangerThreshold = 10,
 }: FlowOutPercentageProps) => {
   const percentage = flowIn > 0 ? (flowOut / flowIn) * 100 : 0
 
@@ -17,37 +21,37 @@ const FlowOutPercentage = ({
       return {
         status: 'danger',
         color: 'red',
-        label: 'Lost Circulation - کاهش جریان خروجی',
+        label: 'Lost Circulation - Critical Flow Loss',
         bgColor: 'bg-red-50',
         borderColor: 'border-red-500',
-        message: '⚠️ خطر: احتمال شکست سازند (Lost Circulation) - سیال در حال از دست رفتن به سازند است',
+        message: '⚠️ Critical: Significant flow loss detected (Lost Circulation) - Drilling fluid is being lost into the formation, requiring immediate attention',
       }
     } else if (percentage > 105) {
       return {
         status: 'danger',
         color: 'red',
-        label: 'Kick - افزایش جریان خروجی',
+        label: 'Kick - Formation Fluid Influx',
         bgColor: 'bg-red-50',
         borderColor: 'border-red-500',
-        message: '🚨 خطر: سازند در حال پس دادن سیال به چاه است (Kick)',
+        message: '❌ Critical: Formation fluid influx detected - Formation fluid is entering the wellbore (Kick)',
       }
     } else if (percentage < 98 || percentage > 102) {
       return {
         status: 'warning',
         color: 'yellow',
-        label: 'انحراف از حالت ایده‌آل',
+        label: 'Flow Deviation from Target',
         bgColor: 'bg-yellow-50',
         borderColor: 'border-yellow-500',
-        message: '⚠️ هشدار: انحراف از مقدار ایده‌آل 100%',
+        message: '⚠️ Warning: Flow rate deviation from target 100%',
       }
     } else {
       return {
         status: 'safe',
         color: 'green',
-        label: 'محدوده ایمن',
+        label: 'Normal Flow',
         bgColor: 'bg-green-50',
         borderColor: 'border-green-500',
-        message: '✅ در محدوده ایمن',
+        message: '✅ All systems normal',
       }
     }
   }
@@ -60,7 +64,7 @@ const FlowOutPercentage = ({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <Activity className="mr-2 h-5 w-5" />
-          درصد جریان خروجی (Flow Out %)
+          Flow Out Percentage
         </h3>
         <span className={`status-badge status-${status.status}`}>
           {status.label}
@@ -108,26 +112,26 @@ const FlowOutPercentage = ({
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-600">حالت ایده‌آل: 100%</div>
+            <div className="text-sm text-gray-600">Target Percentage: 100%</div>
           </div>
         </div>
 
         {/* Flow Values */}
         <div className="space-y-4">
           <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <div className="text-sm text-gray-600 mb-2">جریان ورودی (Flow In)</div>
+            <div className="text-sm text-gray-600 mb-2">Flow In</div>
             <div className="text-3xl font-bold text-blue-600">{flowIn.toFixed(1)}</div>
             <div className="text-sm text-gray-500 mt-1">gpm</div>
           </div>
           
           <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <div className="text-sm text-gray-600 mb-2">جریان خروجی (Flow Out)</div>
+            <div className="text-sm text-gray-600 mb-2">Flow Out</div>
             <div className="text-3xl font-bold text-green-600">{flowOut.toFixed(1)}</div>
             <div className="text-sm text-gray-500 mt-1">gpm</div>
           </div>
 
           <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <div className="text-sm text-gray-600 mb-2">اختلاف</div>
+            <div className="text-sm text-gray-600 mb-2">Difference</div>
             <div className={`text-2xl font-bold ${difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
               {difference > 0 ? '+' : ''}{difference.toFixed(1)} gpm
             </div>
@@ -137,29 +141,29 @@ const FlowOutPercentage = ({
         {/* Status and Warnings */}
         <div className="space-y-4">
           <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <div className="text-sm font-semibold text-gray-700 mb-2">فرمول:</div>
+            <div className="text-sm font-semibold text-gray-700 mb-2">Formula:</div>
             <div className="text-sm font-mono bg-gray-50 p-2 rounded">
               (Flow Out / Flow In) × 100
             </div>
           </div>
 
           <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <div className="text-sm font-semibold text-gray-700 mb-2">محدوده‌های هشدار:</div>
+            <div className="text-sm font-semibold text-gray-700 mb-2">Alert Thresholds:</div>
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span>✅ ایمن:</span>
+                <span>✅ Safe:</span>
                 <span className="font-bold">98% - 102%</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>⚠️ هشدار:</span>
-                <span className="font-bold">95% - 98% یا 102% - 105%</span>
+                <span>⚠️ Warning:</span>
+                <span className="font-bold">95% - 98% or 102% - 105%</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>🚨 Lost Circulation:</span>
+                <span>❌ Lost Circulation:</span>
                 <span className="font-bold">&lt; 95%</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>🚨 Kick:</span>
+                <span>❌ Kick:</span>
                 <span className="font-bold">&gt; 105%</span>
               </div>
             </div>

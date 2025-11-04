@@ -70,8 +70,8 @@ const MudParameters = ({
           {Math.abs(mudWeightDiff) > 0.1 && (
             <div className="text-sm text-gray-600 mt-2">
               {mudWeightDiff < 0 
-                ? '⚠️ Decrease in MW Out may indicate gas or water influx'
-                : '⚠️ Increase in MW Out may indicate cuttings accumulation'
+                ? '⚠️ Warning: Decrease in MW Out may indicate gas or water influx'
+                : '⚠️ Warning: Increase in MW Out may indicate cuttings accumulation'
               }
             </div>
           )}
@@ -100,7 +100,7 @@ const MudParameters = ({
             </div>
             {viscosity > viscosityTarget * 1.2 && (
               <div className="mt-2 text-xs text-yellow-600">
-                ⚠️ High viscosity can falsely increase ECD
+                ⚠️ Warning: High viscosity can falsely increase ECD
               </div>
             )}
           </div>
@@ -122,7 +122,7 @@ const MudParameters = ({
             </div>
             {yieldPoint > yieldPointTarget * 1.3 && (
               <div className="mt-2 text-xs text-yellow-600">
-                ⚠️ High YP increases pressure when restarting pumps
+                ⚠️ Warning: High YP increases pressure when restarting pumps
               </div>
             )}
           </div>
@@ -159,12 +159,12 @@ const MudParameters = ({
               ) : hthpFluidLoss <= 25 ? (
                 <span className="text-yellow-600">⚠️ Acceptable - Monitor closely</span>
               ) : (
-                <span className="text-red-600">🚨 Out of range - High chemical damage risk</span>
+                <span className="text-red-600">❌ Out of acceptable range - High chemical damage risk</span>
               )}
             </div>
             {hthpFluidLoss > 20 && (
               <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
-                ⚠️ High HTHP Fluid Loss: Excessive filtrate is invading the formation, increasing risk of chemical damage (shale swelling)
+                ⚠️ Warning: High HTHP Fluid Loss - Excessive filtrate is invading the formation, increasing risk of chemical damage (shale swelling)
               </div>
             )}
           </div>
@@ -198,12 +198,12 @@ const MudParameters = ({
               ) : lgs <= 5 ? (
                 <span className="text-yellow-600">⚠️ Acceptable</span>
               ) : (
-                <span className="text-red-600">🚨 High - Risk of pore plugging</span>
+                <span className="text-red-600">❌ High - Risk of pore plugging</span>
               )}
             </div>
             {lgs > 5 && (
               <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
-                ⚠️ High LGS: Potential for formation pore plugging and permeability reduction
+                ⚠️ Warning: High LGS - Potential for formation pore plugging and permeability reduction
               </div>
             )}
           </div>

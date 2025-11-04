@@ -26,7 +26,7 @@ const PressureWindowChart = ({
     labels: tvd.map(d => `${d} ft`),
     datasets: [
       {
-        label: 'خط فشار تخلخل (Pore Pressure)',
+        label: 'Pore Pressure (EMW ppg)',
         data: porePressure,
         borderColor: 'rgb(34, 197, 94)', // Green
         backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -35,7 +35,7 @@ const PressureWindowChart = ({
         fill: false,
       },
       {
-        label: 'خط گرادیان شکست (Fracture Gradient)',
+        label: 'Fracture Gradient (EMW ppg)',
         data: fractureGradient,
         borderColor: 'rgb(239, 68, 68)', // Red
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -44,7 +44,7 @@ const PressureWindowChart = ({
         fill: false,
       },
       {
-        label: 'نقطه فعلی ECD',
+        label: 'Current ECD',
         data: Array(tvd.length).fill(null).map((_, i) => i === depthIndex ? ecdPoint : null),
         borderColor: 'rgb(59, 130, 246)', // Blue
         backgroundColor: 'rgb(59, 130, 246)',
@@ -71,7 +71,7 @@ const PressureWindowChart = ({
       },
       title: {
         display: true,
-        text: 'نمودار پنجره فشار (Pressure Window) - The Money Plot',
+        text: 'Pressure Window - The Money Plot',
         font: {
           size: 16,
           weight: 'bold' as const,
@@ -89,7 +89,7 @@ const PressureWindowChart = ({
       x: {
         title: {
           display: true,
-          text: 'عمق (TVD - ft)',
+          text: 'True Vertical Depth (TVD - ft)',
           font: {
             size: 12,
             weight: 'bold' as const,
@@ -100,7 +100,7 @@ const PressureWindowChart = ({
       y: {
         title: {
           display: true,
-          text: 'فشار معادل وزن گل (EMW - ppg)',
+          text: 'Equivalent Mud Weight (EMW - ppg)',
           font: {
             size: 12,
             weight: 'bold' as const,
@@ -128,16 +128,16 @@ const PressureWindowChart = ({
             <div className="flex items-center space-x-2">
               <div className={`w-4 h-4 rounded-full ${safeZone ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className="text-sm font-medium">
-                وضعیت: {safeZone ? '✅ در محدوده ایمن' : '⚠️ خارج از محدوده ایمن'}
+                Status: {safeZone ? 'Safe Zone - Normal Operation' : 'Danger Zone - ECD Outside Safe Range'}
               </span>
             </div>
             <div className="text-sm text-gray-600">
-              ECD فعلی: <span className="font-bold">{ecdPoint.toFixed(2)} ppg</span> در عمق: <span className="font-bold">{currentDepth} ft</span>
+              ECD Value: <span className="font-bold">{ecdPoint.toFixed(2)} ppg</span> at Depth: <span className="font-bold">{currentDepth} ft</span>
             </div>
           </div>
           {dangerZone && (
             <div className="text-red-600 font-bold text-sm">
-              ⚠️ هشدار: ECD خارج از محدوده ایمن است!
+              ⚠️ Warning: ECD value is outside the safe operating window!
             </div>
           )}
         </div>
