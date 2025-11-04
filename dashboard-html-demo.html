@@ -3,8 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FIDPS Monitoring Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>FIDPS - Complete Dashboard Demo</title>
+    <!-- Chart.js - Using CDN with fallback for offline support -->
+    <script>
+        // Fallback: If CDN fails, use simplified charting
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.onerror = function() {
+                console.warn('Chart.js CDN failed, using fallback');
+                // Create a minimal Chart.js-like object for basic functionality
+                window.Chart = function(ctx) {
+                    this.canvas = ctx.canvas;
+                    this.update = function() {};
+                    return this;
+                };
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
     <style>
         * {
             margin: 0;
@@ -14,575 +31,737 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: linear-gradient(to bottom, 
-                #4CAF50 0%, 
-                #4CAF50 15%, 
-                #333 15%, 
-                #2a2a2a 40%, 
-                #333 70%, 
-                #4CAF50 85%, 
-                #4CAF50 100%);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow-y: auto;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
-        }
-
-        .sidebar-header {
+            background-color: #f3f4f6;
+            color: #1f2937;
             padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
             color: white;
-            background-color: #4CAF50;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .sidebar-header h1 {
-            font-size: 1.5em;
-            margin-bottom: 5px;
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
         }
 
-        .sidebar-header .subtitle {
-            font-size: 0.9em;
-            color: #e8f5e9;
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
         }
 
-        .nav-menu {
-            flex: 1;
-            padding: 20px 0;
-            background-color: #4CAF50;
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        .nav-menu ul {
-            list-style: none;
-        }
-
-        .nav-menu li {
-            margin-bottom: 2px;
-        }
-
-        .nav-menu a {
-            display: block;
-            padding: 12px 20px;
-            color: white;
-            text-decoration: none;
-            font-size: 0.95em;
-            transition: all 0.3s;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-menu a:hover {
-            background-color: rgba(0, 0, 0, 0.2);
-            border-left-color: #fff;
-        }
-
-        .nav-menu li.active > a {
-            background-color: #000;
-            border: 1px solid #fff;
+        .section-title {
+            font-size: 1.75rem;
             font-weight: bold;
-        }
-
-        .gradient-bar {
-            position: absolute;
-            right: 0;
-            top: 15%;
-            bottom: 15%;
-            width: 8px;
-            background: linear-gradient(to bottom, #000, #666, #fff, #666, #000);
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            background-color: #0a0a0a;
-            padding: 20px;
-            overflow-y: auto;
+            color: #1f2937;
+            margin-bottom: 10px;
             display: flex;
-            flex-direction: column;
-            gap: 20px;
+            align-items: center;
+            gap: 10px;
         }
 
-        .control-panel {
-            display: flex;
-            gap: 20px;
-            background-color: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
+        .section-description {
+            color: #6b7280;
+            margin-bottom: 25px;
+            font-size: 1rem;
         }
 
-        .control-group {
-            flex: 1;
-        }
-
-        .control-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-            color: #b0b0b0;
-        }
-
-        .control-group select,
-        .control-group input {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #444;
-            border-radius: 4px;
-            background-color: #3a3a3a;
-            color: #e0e0e0;
-            font-size: 0.9em;
-        }
-
-        .control-group select {
-            cursor: pointer;
-        }
-
-        .control-group input[type="number"] {
-            -moz-appearance: textfield;
-        }
-
-        .control-group input[type="number"]::-webkit-outer-spin-button,
-        .control-group input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        /* Gauges Container */
-        .gauges-container {
+        .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #2563eb;
+        }
+
+        .card.warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .card.danger {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .card.safe {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
             margin-bottom: 20px;
+            color: #1f2937;
         }
 
-        .gauge-card {
-            background-color: #2a2a2a;
-            border-radius: 8px;
-            padding: 15px;
-        }
-
-        .gauge-title {
-            text-align: center;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        .gauge-pair {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .gauge {
-            width: 100%;
-            height: 160px;
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
             position: relative;
-            margin-bottom: 10px;
+        }
+
+        .gauge-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
         }
 
         .gauge-svg {
-            width: 100%;
-            height: 100%;
+            width: 250px;
+            height: 150px;
         }
 
-        .gauge-needle {
-            stroke: #fff;
-            stroke-width: 2;
-            fill: #fff;
-        }
-
-        .gauge-value {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #fff;
-            color: #000;
-            padding: 5px 15px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.9em;
-            min-width: 50px;
-            text-align: center;
-        }
-
-        /* Charts Section */
-        .charts-section {
+        .metric-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
+            margin-top: 20px;
         }
 
-        .chart-card {
-            background-color: #2a2a2a;
+        .metric-box {
+            background: #f9fafb;
             border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-safe {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .alert-item {
             padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
         }
 
-        .chart-card h3 {
-            margin-bottom: 10px;
-            color: #4CAF50;
-            font-size: 1.1em;
+        .alert-danger {
+            background: #fef2f2;
+            border-left-color: #ef4444;
         }
 
-        .chart-wrapper {
-            background-color: white;
-            border-radius: 4px;
-            padding: 10px;
-            height: 300px;
+        .alert-warning {
+            background: #fffbeb;
+            border-left-color: #f59e0b;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border-left-color: #3b82f6;
+        }
+
+        .flow-circle {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
             position: relative;
         }
 
-        /* Responsive */
-        @media (max-width: 1400px) {
-            .gauges-container {
-                grid-template-columns: repeat(3, 1fr);
+        .flow-circle svg {
+            transform: rotate(-90deg);
             }
-        }
 
-        @media (max-width: 1024px) {
-            .gauges-container {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .charts-section {
-                grid-template-columns: 1fr;
-            }
+        .info-box {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.875rem;
+            color: #4b5563;
         }
 
         @media (max-width: 768px) {
-            .sidebar {
-                width: 180px;
-            }
-            .gauges-container {
+            .kpi-grid {
                 grid-template-columns: 1fr;
             }
-            .control-panel {
+            .gauge-container {
                 flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>FIDPS</h1>
-            <div class="subtitle">Formation Integrity & Damage Prevention System</div>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🩺 FIDPS Dashboard - Complete Demo</h1>
+            <p>Formation Integrity & Damage Prevention System - Real-time Monitoring</p>
         </div>
-        <nav class="nav-menu">
-            <ul>
-                <li><a href="#dashboard">Dashboard</a></li>
-                <li><a href="#wells">Wells</a></li>
-                <li class="active"><a href="#monitoring">Real-Time Monitoring</a></li>
-                <li><a href="#anomalies">Anomalies</a></li>
-                <li><a href="#damage">Damage Diagnostics</a></li>
-                <li><a href="#quality">Data Quality</a></li>
-                <li><a href="#optimization">RTO Control</a></li>
-                <li><a href="#maintenance">Predictive Maintenance</a></li>
-                <li><a href="#alerts">Alarm Systems</a></li>
-                <li><a href="#analysis">Graph Analysis</a></li>
-                <li><a href="#reporting">Reporting</a></li>
-                <li><a href="#system">System</a></li>
-            </ul>
-        </nav>
-        <div class="gradient-bar"></div>
+
+        <!-- Section 1: Vital Indicators (KPIs) -->
+        <div class="section">
+            <div class="section-title">
+                🩺 Section 1: Vital Indicators (KPIs) - Displayed in Largest Size
+        </div>
+            <div class="section-description">
+                These should act like "traffic lights". If any of these go outside the range, it means "danger".
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <div class="control-group">
-                <label for="system-select">System</label>
-                <select id="system-select">
-                    <option value="">All Systems</option>
-                    <option value="well-001">Well-001</option>
-                    <option value="well-002">Well-002</option>
-                    <option value="well-003">Well-003</option>
-                </select>
+            <!-- Pressure Window Chart -->
+            <div class="card safe">
+                <div class="card-title">1. Pressure Window Chart (The Money Plot)</div>
+                <div class="status-badge status-safe">✅ In Safe Zone</div>
+                <div class="chart-container">
+                    <canvas id="pressureWindowChart"></canvas>
             </div>
-            <div class="control-group">
-                <label for="parameter-select">Parameter</label>
-                <select id="parameter-select">
-                    <option value="all">All Parameters</option>
-                    <option value="pressure">Pressure</option>
-                    <option value="temperature">Temperature</option>
-                    <option value="vibration">Vibration</option>
-                    <option value="flow">Flow Rate</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label for="sensor-select">Sensor</label>
-                <select id="sensor-select">
-                    <option value="all">All Sensors</option>
-                    <option value="sensor-1">Sensor 1</option>
-                    <option value="sensor-2">Sensor 2</option>
-                </select>
+                <div class="info-box">
+                    <strong>Current Status:</strong> ECD is within safe operating window between Pore Pressure and Fracture Gradient.
             </div>
         </div>
 
-        <!-- Gauges Grid -->
-        <div class="gauges-container" id="gauges-container">
-            <!-- Gauges will be generated here -->
+            <!-- Differential Pressure Gauge -->
+            <div class="card safe">
+                <div class="card-title">2. Differential Pressure Gauge (ΔP)</div>
+                <div class="status-badge status-safe">Safe Zone</div>
+                <div class="gauge-container">
+                    <div>
+                        <svg class="gauge-svg" viewBox="0 0 200 120" id="deltaPGauge"></svg>
+                        <div style="text-align: center; margin-top: 10px;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #10b981;" id="deltaPValue">120.0</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">psi</div>
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="info-box">
+                            <div style="margin-bottom: 10px;"><strong>Formula:</strong> ΔP = ECD - Pore Pressure</div>
+                            <div class="metric-grid" style="grid-template-columns: 1fr 1fr;">
+                                <div class="metric-box">
+                                    <div class="metric-label">Current ECD</div>
+                                    <div class="metric-value">10.2</div>
+                                    <div class="metric-unit">ppg</div>
+                                </div>
+                                <div class="metric-box">
+                                    <div class="metric-label">Pore Pressure</div>
+                                    <div class="metric-value">9.5</div>
+                                    <div class="metric-unit">ppg</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 15px; font-size: 0.8rem;">
+                                <div>⚠️ Warning (Yellow): &gt; 150 psi</div>
+                                <div>🚨 Danger (Red): &gt; 200 psi</div>
+                                <div>⚠️ Underbalance: &lt; 0 psi</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="charts-section">
-            <div class="chart-card">
-                <h3>Sensor Data Analysis</h3>
-                <div class="chart-wrapper">
-                    <canvas id="sensor-chart"></canvas>
+            <!-- Flow Out Percentage -->
+            <div class="card safe">
+                <div class="card-title">3. Flow Out Percentage</div>
+                <div class="status-badge status-safe">Safe Zone</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; align-items: center;">
+                    <div class="flow-circle">
+                        <svg width="200" height="200">
+                            <circle cx="100" cy="100" r="80" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+                            <circle cx="100" cy="100" r="80" fill="none" stroke="#10b981" stroke-width="12" 
+                                    stroke-dasharray="502" stroke-dashoffset="10" stroke-linecap="round"/>
+                            <text x="100" y="100" text-anchor="middle" dominant-baseline="middle" 
+                                  font-size="36" font-weight="bold" fill="#10b981">99.0%</text>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="metric-box">
+                            <div class="metric-label">Flow In</div>
+                            <div class="metric-value">500.0</div>
+                            <div class="metric-unit">gpm</div>
+                        </div>
+                        <div class="metric-box" style="margin-top: 15px;">
+                            <div class="metric-label">Flow Out</div>
+                            <div class="metric-value">495.0</div>
+                            <div class="metric-unit">gpm</div>
                 </div>
             </div>
-            <div class="chart-card">
-                <h3>Noise Signal</h3>
-                <div class="chart-wrapper">
-                    <canvas id="noise-chart"></canvas>
+                    <div class="info-box">
+                        <div style="margin-bottom: 10px;"><strong>Formula:</strong> (Flow Out / Flow In) × 100</div>
+                        <div style="font-size: 0.8rem;">
+                            <div>✅ Safe: 98% - 102%</div>
+                            <div>⚠️ Warning: 95% - 98% or 102% - 105%</div>
+                            <div>🚨 Lost Circulation: &lt; 95%</div>
+                            <div>🚨 Kick: &gt; 105%</div>
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Section 2: Mud Parameters -->
+        <div class="section">
+            <div class="section-title">📊 Section 2: Drilling Fluid Parameters (Mud Parameters)</div>
+            
+            <div class="card">
+                <div class="card-title">4. Mud Weight (IN vs. OUT)</div>
+                <div class="metric-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="metric-box">
+                        <div class="metric-label">Mud Weight In (MW In)</div>
+                        <div class="metric-value" style="color: #2563eb;">10.50</div>
+                        <div class="metric-unit">ppg</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Mud Weight Out (MW Out)</div>
+                        <div class="metric-value" style="color: #10b981;">10.40</div>
+                        <div class="metric-unit">ppg</div>
+                    </div>
+                </div>
+                <div class="info-box">
+                    Difference: -0.10 ppg (within acceptable range)
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">5. Rheology Parameters</div>
+                <div class="metric-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="metric-box">
+                        <div class="metric-label">Viscosity</div>
+                        <div class="metric-value">45</div>
+                        <div class="metric-unit">cP</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Target: 40 cP</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Plastic Viscosity (PV)</div>
+                        <div class="metric-value">25</div>
+                        <div class="metric-unit">cP</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Yield Point (YP)</div>
+                        <div class="metric-value">18</div>
+                        <div class="metric-unit">lb/100ft²</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Target: 15 lb/100ft²</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">6. Filtration Rate (Fluid Loss)</div>
+                <div class="metric-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="metric-box">
+                        <div class="metric-label">API Fluid Loss</div>
+                        <div class="metric-value">5.2</div>
+                        <div class="metric-unit">ml/30min</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #10b981;">✅ Within acceptable range</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">HTHP Fluid Loss</div>
+                        <div class="metric-value">12.5</div>
+                        <div class="metric-unit">ml/30min</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Last test: 2024-01-15 14:30</div>
+                        <div style="margin-top: 5px; font-size: 0.75rem; color: #10b981;">✅ Within acceptable range</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">7. Solids Content</div>
+                <div class="metric-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="metric-box">
+                        <div class="metric-label">Total Solids</div>
+                        <div class="metric-value">12.5</div>
+                        <div class="metric-unit">%</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Low Gravity Solids (LGS)</div>
+                        <div class="metric-value">4.2</div>
+                        <div class="metric-unit">%</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Last test: 2024-01-15 14:30</div>
+                        <div style="margin-top: 5px; font-size: 0.75rem; color: #10b981;">✅ Acceptable</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Drilling & Formation Parameters -->
+        <div class="section">
+            <div class="section-title">📈 Section 3: Drilling & Formation Parameters</div>
+
+            <div class="card">
+                <div class="card-title">8. Rate of Penetration (ROP)</div>
+                <div class="metric-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="metric-box">
+                        <div class="metric-label">Current ROP</div>
+                        <div class="metric-value" style="color: #2563eb;">45.5</div>
+                        <div class="metric-unit">ft/hr</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Average ROP</div>
+                        <div class="metric-value" style="color: #10b981;">50.2</div>
+                        <div class="metric-unit">ft/hr</div>
+                        <div style="margin-top: 10px; font-size: 0.875rem; color: #6b7280;">-9.4% from average</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">9. Torque & Drag</div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="torqueDragChart"></canvas>
+                </div>
+                <div class="metric-grid" style="grid-template-columns: 1fr 1fr; margin-top: 20px;">
+                    <div class="metric-box">
+                        <div class="metric-label">Current Torque</div>
+                        <div class="metric-value">8,500</div>
+                        <div class="metric-unit">ft-lb</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Average: 8,200 ft-lb</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Current Drag</div>
+                        <div class="metric-value">16,000</div>
+                        <div class="metric-unit">lb</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Average: 15,500 lb</div>
+                    </div>
+                </div>
+                <div class="info-box">
+                    💡 Sudden increase in torque or drag may indicate shale swelling and wellbore narrowing, directly related to chemical damage.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">10. LWD Data (Logging While Drilling)</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div></div>
+                    <div style="background: #f9fafb; padding: 8px 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <span style="font-size: 0.875rem; color: #6b7280;">Current Lithology: </span>
+                        <span style="font-size: 0.875rem; font-weight: bold; color: #9333ea;">Shale</span>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="lwdChart"></canvas>
+                </div>
+                <div class="metric-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 20px;">
+                    <div class="metric-box">
+                        <div class="metric-label">Current Gamma Ray</div>
+                        <div class="metric-value">42.5</div>
+                        <div class="metric-unit">API</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #f59e0b;">⚠️ Shale: Swelling damage risk</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Resistivity (Shallow)</div>
+                        <div class="metric-value">3.2</div>
+                        <div class="metric-unit">ohm-m</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Resistivity (Deep)</div>
+                        <div class="metric-value">4.1</div>
+                        <div class="metric-unit">ohm-m</div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #6b7280;">Separation: 28.1%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Intelligent Alerts -->
+        <div class="section">
+            <div class="section-title">🚨 Section 4: Intelligent Alerts</div>
+            <div class="section-description">
+                This intelligent alert system analyzes real-time drilling parameters and provides contextual warnings based on formation damage risk indicators.
+            </div>
+
+            <div class="card safe">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div class="card-title">Intelligent Alerts</div>
+                    <div class="status-badge status-safe">0 Active Alerts</div>
+                </div>
+                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 30px; text-align: center;">
+                    <div style="font-size: 1.125rem; font-weight: 600; color: #065f46;">
+                        ✅ All parameters are within safe operating ranges. No alerts at this time.
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Gauges Data Configuration
-        const gaugesConfig = [
-            { title: 'Frequency', min: 0, max: 100, unit: 'Hz', pairs: [
-                { label: 'Amplitude', min: 0, max: 100 },
-                { label: 'Frequency', min: 0, max: 1000 }
-            ]},
-            { title: 'Absolute Pressure', min: 0, max: 1000, unit: 'psi', pairs: [
-                { label: 'PSI Compressor', min: 0, max: 1000 },
-                { label: 'PSI Turbine', min: 0, max: 1000 }
-            ]},
-            { title: 'Static Pressure', min: 0, max: 1000, unit: 'psi', pairs: [
-                { label: 'PSI Compressor S', min: 0, max: 1000 },
-                { label: 'PSI Turbine 2', min: 0, max: 1000 }
-            ]},
-            { title: 'Dynamic Pressure', min: 0, max: 1000, unit: 'psi', pairs: [
-                { label: 'PSI Compressor D', min: 0, max: 1000 },
-                { label: 'PSI Turbine D', min: 0, max: 1000 }
-            ]},
-            { title: 'Pressure', min: -100, max: 100, unit: 'psi', pairs: [
-                { label: 'P_C', min: -100, max: 100 },
-                { label: 'P_T', min: -100, max: 100 }
-            ]}
-        ];
-
-        // Generate Gauges
-        function createGauge(container, title, pairs) {
-            const gaugeCard = document.createElement('div');
-            gaugeCard.className = 'gauge-card';
-            
-            const titleElement = document.createElement('div');
-            titleElement.className = 'gauge-title';
-            titleElement.textContent = title;
-            gaugeCard.appendChild(titleElement);
-
-            const gaugePair = document.createElement('div');
-            gaugePair.className = 'gauge-pair';
-
-            pairs.forEach(pair => {
-                const gaugeDiv = document.createElement('div');
-                gaugeDiv.className = 'gauge';
-                
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.className = 'gauge-svg';
-                svg.setAttribute('viewBox', '0 0 200 100');
-                
-                // Draw gauge arc
-                const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                arc.setAttribute('d', 'M 20 80 A 60 60 0 0 1 180 80');
-                arc.setAttribute('fill', 'none');
-                arc.setAttribute('stroke', '#fff');
-                arc.setAttribute('stroke-width', '3');
-                svg.appendChild(arc);
-                
-                // Draw scale marks
-                for (let i = 0; i <= 10; i++) {
-                    const angle = i * 18; // 180 degrees / 10
-                    const x1 = 100 + 60 * Math.cos(Math.PI * angle / 180);
-                    const y1 = 80 - 60 * Math.sin(Math.PI * angle / 180);
-                    const x2 = 100 + 50 * Math.cos(Math.PI * angle / 180);
-                    const y2 = 80 - 50 * Math.sin(Math.PI * angle / 180);
-                    
-                    const mark = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    mark.setAttribute('x1', x1);
-                    mark.setAttribute('y1', y1);
-                    mark.setAttribute('x2', x2);
-                    mark.setAttribute('y2', y2);
-                    mark.setAttribute('stroke', '#fff');
-                    mark.setAttribute('stroke-width', '2');
-                    svg.appendChild(mark);
-
-                    // Add labels
-                    if (i % 2 === 0) {
-                        const value = (pair.max - pair.min) * (i / 10) + pair.min;
-                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', 100 + 45 * Math.cos(Math.PI * angle / 180));
-                        text.setAttribute('y', 80 - 45 * Math.sin(Math.PI * angle / 180) + 4);
-                        text.setAttribute('fill', '#fff');
-                        text.setAttribute('font-size', '10');
-                        text.setAttribute('text-anchor', 'middle');
-                        text.textContent = Math.floor(value);
-                        svg.appendChild(text);
-                    }
-                }
-                
-                // Draw needle (pointing to 0 position)
-                const needle = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                needle.className = 'gauge-needle';
-                needle.setAttribute('id', `needle-${pair.label.replace(/\s+/g, '-')}`);
-                needle.setAttribute('x1', '100');
-                needle.setAttribute('y1', '80');
-                needle.setAttribute('x2', '100');
-                needle.setAttribute('y2', '20');
-                needle.setAttribute('stroke', '#ff4444');
-                needle.setAttribute('stroke-width', '3');
-                svg.appendChild(needle);
-                
-                gaugeDiv.appendChild(svg);
-                
-                // Value display
-                const valueDisplay = document.createElement('div');
-                valueDisplay.className = 'gauge-value';
-                valueDisplay.setAttribute('id', `value-${pair.label.replace(/\s+/g, '-')}`);
-                valueDisplay.textContent = '0';
-                gaugeDiv.appendChild(valueDisplay);
-
-                // Label
-                const label = document.createElement('div');
-                label.style.cssText = 'text-align: center; margin-top: 5px; font-size: 0.85em; color: #b0b0b0;';
-                label.textContent = pair.label;
-                gaugeDiv.appendChild(label);
-
-                gaugePair.appendChild(gaugeDiv);
-            });
-
-            gaugeCard.appendChild(gaugePair);
-            container.appendChild(gaugeCard);
-        }
-
-        // Initialize Gauges
-        const gaugesContainer = document.getElementById('gauges-container');
-        gaugesConfig.forEach(config => {
-            createGauge(gaugesContainer, config.title, config.pairs);
-        });
-
-        // Simulate Real-time Data Updates
-        function updateGauges() {
-            gaugesConfig.forEach(config => {
-                config.pairs.forEach(pair => {
-                    const needle = document.getElementById(`needle-${pair.label.replace(/\s+/g, '-')}`);
-                    const valueDisplay = document.getElementById(`value-${pair.label.replace(/\s+/g, '-')}`);
-                    
-                    // Random value between min and max
-                    const value = Math.random() * (pair.max - pair.min) + pair.min;
-                    const normalizedValue = (value - pair.min) / (pair.max - pair.min);
-                    
-                    // Calculate needle angle (0 to 180 degrees)
-                    const angle = normalizedValue * 180;
-                    
-                    // Update needle position
-                    const x = 100 + 60 * Math.cos(Math.PI * angle / 180);
-                    const y = 80 - 60 * Math.sin(Math.PI * angle / 180);
-                    needle.setAttribute('x2', x);
-                    needle.setAttribute('y2', y);
-                    
-                    // Update display
-                    valueDisplay.textContent = value.toFixed(1);
-                });
-            });
-        }
-
-        // Initialize Charts
-        const sensorCtx = document.getElementById('sensor-chart').getContext('2d');
-        const sensorChart = new Chart(sensorCtx, {
+        // Pressure Window Chart
+        const pressureCtx = document.getElementById('pressureWindowChart').getContext('2d');
+        const tvd = Array.from({length: 50}, (_, i) => 1000 + i * 100);
+        const porePressure = Array.from({length: 50}, (_, i) => 8.5 + (i * 0.02));
+        const fractureGradient = Array.from({length: 50}, (_, i) => 12.5 + (i * 0.02));
+        const currentECD = 10.2;
+        const currentDepth = 5000;
+        const depthIndex = tvd.findIndex(d => d >= currentDepth) || 25;
+        
+        new Chart(pressureCtx, {
             type: 'line',
             data: {
-                labels: Array.from({length: 50}, (_, i) => i),
+                labels: tvd.map(d => `${d} ft`),
                 datasets: [{
-                    label: 'Sensor Data',
-                    data: Array.from({length: 50}, () => Math.random() * 100),
-                    borderColor: 'rgb(76, 175, 80)',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    tension: 0.4
+                    label: 'Pore Pressure',
+                    data: porePressure,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: false
+                }, {
+                    label: 'Fracture Gradient',
+                    data: fractureGradient,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: false
+                }, {
+                    label: 'Current ECD',
+                    data: Array(50).fill(null).map((_, i) => i === depthIndex ? currentECD : null),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgb(59, 130, 246)',
+                    borderWidth: 3,
+                    pointRadius: 8,
+                    pointHoverRadius: 10,
+                    showLine: false
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: '#666' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    x: {
-                        ticks: { color: '#666' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
+                plugins: {
+                    legend: { position: 'top' },
+                    title: {
+                        display: true,
+                        text: 'Pressure Window Chart (The Money Plot)',
+                        font: { size: 16, weight: 'bold' }
                     }
                 },
-                plugins: {
-                    legend: { display: false }
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Depth (TVD - ft)', font: { size: 12, weight: 'bold' } },
+                        reverse: true
+                    },
+                    y: {
+                        title: { display: true, text: 'Pressure (EMW - ppg)', font: { size: 12, weight: 'bold' } },
+                        min: 8,
+                        max: 13
+                    }
                 }
             }
         });
 
-        const noiseCtx = document.getElementById('noise-chart').getContext('2d');
-        const noiseChart = new Chart(noiseCtx, {
-            type: 'bar',
+        // Differential Pressure Gauge
+        function drawDeltaPGauge() {
+            const svg = document.getElementById('deltaPGauge');
+            svg.innerHTML = '';
+            
+            const deltaP = 120;
+            const minValue = -50;
+            const maxValue = 250;
+            const percentage = ((deltaP - minValue) / (maxValue - minValue)) * 100;
+            const angle = (percentage / 100) * 180 - 90;
+                    
+            // Background arc
+            const bgArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            bgArc.setAttribute('d', 'M 20 100 A 80 80 0 0 1 180 100');
+            bgArc.setAttribute('fill', 'none');
+            bgArc.setAttribute('stroke', '#e5e7eb');
+            bgArc.setAttribute('stroke-width', '20');
+            svg.appendChild(bgArc);
+
+            // Safe zone (green)
+            const safeArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            safeArc.setAttribute('d', 'M 20 100 A 80 80 0 0 1 100 20');
+            safeArc.setAttribute('fill', 'none');
+            safeArc.setAttribute('stroke', '#22c55e');
+            safeArc.setAttribute('stroke-width', '20');
+            svg.appendChild(safeArc);
+                
+            // Warning zone (yellow)
+            const warnArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            warnArc.setAttribute('d', 'M 100 20 A 80 80 0 0 1 160 60');
+            warnArc.setAttribute('fill', 'none');
+            warnArc.setAttribute('stroke', '#eab308');
+            warnArc.setAttribute('stroke-width', '20');
+            svg.appendChild(warnArc);
+                
+            // Danger zone (red)
+            const dangerArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            dangerArc.setAttribute('d', 'M 160 60 A 80 80 0 0 1 180 100');
+            dangerArc.setAttribute('fill', 'none');
+            dangerArc.setAttribute('stroke', '#ef4444');
+            dangerArc.setAttribute('stroke-width', '20');
+            svg.appendChild(dangerArc);
+            
+            // Needle
+            const x = 100 + 70 * Math.cos((angle * Math.PI) / 180);
+            const y = 100 - 70 * Math.sin((angle * Math.PI) / 180);
+            const needle = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            needle.setAttribute('x1', '100');
+            needle.setAttribute('y1', '100');
+                    needle.setAttribute('x2', x);
+                    needle.setAttribute('y2', y);
+            needle.setAttribute('stroke', '#22c55e');
+            needle.setAttribute('stroke-width', '4');
+            needle.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(needle);
+            
+            // Center circle
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', '100');
+            circle.setAttribute('cy', '100');
+            circle.setAttribute('r', '8');
+            circle.setAttribute('fill', '#22c55e');
+            svg.appendChild(circle);
+        }
+        drawDeltaPGauge();
+
+        // Torque & Drag Chart
+        const torqueCtx = document.getElementById('torqueDragChart').getContext('2d');
+        const torqueData = Array.from({length: 30}, (_, i) => 8000 + Math.random() * 1000);
+        const dragData = Array.from({length: 30}, (_, i) => 15000 + Math.random() * 2000);
+        
+        new Chart(torqueCtx, {
+            type: 'line',
             data: {
-                labels: Array.from({length: 30}, (_, i) => i),
+                labels: Array.from({length: 30}, (_, i) => `T-${i + 1}`),
                 datasets: [{
-                    label: 'Noise',
-                    data: Array.from({length: 30}, () => Math.random() * 50),
-                    backgroundColor: 'rgba(139, 0, 0, 0.7)',
-                    borderColor: 'rgb(139, 0, 0)',
-                    borderWidth: 1
+                    label: 'Torque',
+                    data: torqueData,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Drag',
+                    data: dragData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    yAxisID: 'y1'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: '#666' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    x: {
-                        ticks: { color: '#666' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Torque (ft-lb)' } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Drag (lb)' }, grid: { drawOnChartArea: false } }
                 }
             }
         });
 
-        // Update gauges every 2 seconds
-        setInterval(updateGauges, 2000);
-        updateGauges(); // Initial update
+        // LWD Chart
+        const lwdCtx = document.getElementById('lwdChart').getContext('2d');
+        const depth = Array.from({length: 50}, (_, i) => 5000 + i * 10);
+        const gammaRay = Array.from({length: 50}, (_, i) => 40 + Math.sin(i / 5) * 20);
+        const shallowResistivity = Array.from({length: 50}, (_, i) => 2 + Math.random() * 3);
+        const deepResistivity = Array.from({length: 50}, (_, i) => 2.5 + Math.random() * 4);
+        
+        new Chart(lwdCtx, {
+            type: 'line',
+            data: {
+                labels: depth.map(d => `${d} ft`),
+                datasets: [{
+                    label: 'Gamma Ray',
+                    data: gammaRay,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Resistivity (Shallow)',
+                    data: shallowResistivity,
+                    borderColor: 'rgb(234, 179, 8)',
+                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }, {
+                    label: 'Resistivity (Deep)',
+                    data: deepResistivity,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    x: { title: { display: true, text: 'Depth (ft)' }, reverse: true },
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Gamma Ray (API)' } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Resistivity (ohm-m)' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
 
-        // Update charts every 3 seconds
+        // Simulate real-time updates
         setInterval(() => {
-            sensorChart.data.datasets[0].data.shift();
-            sensorChart.data.datasets[0].data.push(Math.random() * 100);
-            sensorChart.update('none');
-
-            noiseChart.data.datasets[0].data = Array.from({length: 30}, () => Math.random() * 50);
-            noiseChart.update('none');
+            const newDeltaP = 120 + (Math.random() - 0.5) * 10;
+            document.getElementById('deltaPValue').textContent = newDeltaP.toFixed(1);
+            drawDeltaPGauge();
         }, 3000);
     </script>
 </body>

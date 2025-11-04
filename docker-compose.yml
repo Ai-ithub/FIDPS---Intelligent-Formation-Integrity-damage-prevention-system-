@@ -499,6 +499,59 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.8.1
+    container_name: fidps-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - BACKEND_STORE_URI=postgresql://${POSTGRES_USER:-fidps_user}:${POSTGRES_PASSWORD:-fidps_password}@postgres:5432/${POSTGRES_DB:-fidps_operational}
+      - DEFAULT_ARTIFACT_ROOT=s3://mlflow-artifacts/
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-fidps_minio_admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-fidps_minio_password}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    volumes:
+      - mlflow-artifacts:/mlflow
+    networks:
+      - fidps-network
+    depends_on:
+      - postgres
+      - minio
+    restart: unless-stopped
+
+  # Image Processing Service (SSD)
+  image-processing-service:
+    build:
+      context: ./image-processing-service
+      dockerfile: Dockerfile
+    container_name: fidps-image-processing
+    ports:
+      - "8004:8004"
+    environment:
+      # Kafka configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: image-processing-service
+      
+      # Model configuration
+      MODEL_PATH: /app/models/damage_detector.h5
+      
+      # API configuration
+      PORT: 8004
+      RUN_AS_KAFKA_CONSUMER: ${RUN_IMAGE_SERVICE_AS_CONSUMER:-false}
+    volumes:
+      - image_models:/app/models
+    networks:
+      - fidps-network
+    depends_on:
+      - kafka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # API Dashboard Service
   api-dashboard:
     build:
@@ -589,6 +642,8 @@ volumes:
   influxdb-config:
   rto-logs:
   pdm-logs:
+  mlflow-artifacts:
+  image_models:
 
 networks:
   fidps-network:

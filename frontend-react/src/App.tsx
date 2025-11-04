@@ -3,13 +3,15 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout/Layout'
 import Dashboard from './pages/Dashboard'
-import WellsPage from './pages/WellsPage'
+import KPIsPage from './pages/KPIsPage'
+import MudParametersPage from './pages/MudParametersPage'
+import DrillingFormationPage from './pages/DrillingFormationPage'
+import AlertsPage from './pages/AlertsPage'
+import DataPage from './pages/DataPage'
+import SystemPage from './pages/SystemPage'
 import AnomaliesPage from './pages/AnomaliesPage'
 import DataQualityPage from './pages/DataQualityPage'
-import SystemPage from './pages/SystemPage'
-import DamageDiagnosticsPage from './pages/DamageDiagnosticsPage'
-import RTOControlPage from './pages/RTOControlPage'
-import RealtimeMonitoringPage from './pages/RealtimeMonitoringPage'
+import WellsPage from './pages/WellsPage'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -29,13 +31,15 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/wells" element={<WellsPage />} />
+            <Route path="/kpis" element={<KPIsPage />} />
+            <Route path="/mud-parameters" element={<MudParametersPage />} />
+            <Route path="/drilling-formation" element={<DrillingFormationPage />} />
+            <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/anomalies" element={<AnomaliesPage />} />
-            <Route path="/damage-diagnostics" element={<DamageDiagnosticsPage />} />
-            <Route path="/rto-control" element={<RTOControlPage />} />
+            <Route path="/data" element={<DataPage />} />
             <Route path="/data-quality" element={<DataQualityPage />} />
+            <Route path="/wells" element={<WellsPage />} />
             <Route path="/system" element={<SystemPage />} />
-            <Route path="/realtime-monitoring" element={<RealtimeMonitoringPage />} />
           </Routes>
         </Layout>
         <Toaster 

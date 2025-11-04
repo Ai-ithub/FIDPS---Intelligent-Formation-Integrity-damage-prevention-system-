@@ -151,6 +151,76 @@ class MWDLWDDataValidator:
                 description="Depth should generally increase over time"
             ),
             
+            # Statistical outlier detection (Z-score)
+            ValidationRule(
+                rule_id="zscore_weight_on_bit",
+                field_name="weight_on_bit_klbs",
+                rule_type="zscore",
+                parameters={"threshold": 3.0},
+                severity=ValidationSeverity.WARNING,
+                description="Weight on bit Z-score outlier detection"
+            ),
+            ValidationRule(
+                rule_id="zscore_flow_rate",
+                field_name="flow_rate_gpm",
+                rule_type="zscore",
+                parameters={"threshold": 3.0},
+                severity=ValidationSeverity.WARNING,
+                description="Flow rate Z-score outlier detection"
+            ),
+            ValidationRule(
+                rule_id="zscore_pressure",
+                field_name="standpipe_pressure",
+                rule_type="zscore",
+                parameters={"threshold": 3.0},
+                severity=ValidationSeverity.ERROR,
+                description="Pressure Z-score outlier detection"
+            ),
+            
+            # IQR (Interquartile Range) outlier detection
+            ValidationRule(
+                rule_id="iqr_torque",
+                field_name="torque",
+                rule_type="iqr",
+                parameters={"factor": 1.5},
+                severity=ValidationSeverity.WARNING,
+                description="Torque IQR outlier detection"
+            ),
+            ValidationRule(
+                rule_id="iqr_temperature",
+                field_name="temperature_degf",
+                rule_type="iqr",
+                parameters={"factor": 1.5},
+                severity=ValidationSeverity.WARNING,
+                description="Temperature IQR outlier detection"
+            ),
+            
+            # Physical consistency checks
+            ValidationRule(
+                rule_id="physical_pressure_depth",
+                field_name="standpipe_pressure",
+                rule_type="physical_consistency",
+                parameters={"related_field": "depth_ft", "relation": "linear", "min_gradient": 0.4, "max_gradient": 0.6},
+                severity=ValidationSeverity.ERROR,
+                description="Pressure should correlate with depth"
+            ),
+            ValidationRule(
+                rule_id="physical_wob_torque",
+                field_name="torque",
+                rule_type="physical_consistency",
+                parameters={"related_field": "weight_on_bit_klbs", "relation": "correlation", "min_correlation": 0.5},
+                severity=ValidationSeverity.WARNING,
+                description="Torque should correlate with weight on bit"
+            ),
+            ValidationRule(
+                rule_id="physical_flow_pressure",
+                field_name="standpipe_pressure",
+                rule_type="physical_consistency",
+                parameters={"related_field": "flow_rate_gpm", "relation": "quadratic", "min_coefficient": 0.001},
+                severity=ValidationSeverity.WARNING,
+                description="Pressure should increase with flow rate"
+            ),
+            
             # Data freshness rules
             ValidationRule(
                 rule_id="data_freshness",
@@ -199,6 +269,12 @@ class MWDLWDDataValidator:
                 return self._validate_freshness(record_id, rule, field_value)
             elif rule.rule_type == "monotonic_increasing":
                 return self._validate_monotonic(record_id, rule, field_value, record)
+            elif rule.rule_type == "zscore":
+                return self._validate_zscore(record_id, rule, field_value, record)
+            elif rule.rule_type == "iqr":
+                return self._validate_iqr(record_id, rule, field_value, record)
+            elif rule.rule_type == "physical_consistency":
+                return self._validate_physical_consistency(record_id, rule, field_value, record)
             
         except Exception as e:
             logger.error(f"Error applying validation rule {rule.rule_id}: {str(e)}")
@@ -352,6 +428,210 @@ class MWDLWDDataValidator:
         """Validate monotonic increasing values (requires state management in Flink)"""
         # This would be implemented using Flink's state management
         # For now, return None as this requires stateful processing
+        return None
+    
+    def _validate_zscore(self, record_id: str, rule: ValidationRule, value, record: Dict) -> Optional[ValidationResult]:
+        """Validate using Z-score outlier detection"""
+        if value is None:
+            return None
+        
+        try:
+            numeric_value = float(value)
+            threshold = rule.parameters.get("threshold", 3.0)
+            
+            # Calculate Z-score (requires historical data - simplified for now)
+            # In production, this would use Flink's state to maintain historical statistics
+            mean_value = self._get_historical_mean(rule.field_name)
+            std_value = self._get_historical_std(rule.field_name)
+            
+            if mean_value is None or std_value is None or std_value == 0:
+                return None  # Not enough data for Z-score calculation
+            
+            z_score = abs((numeric_value - mean_value) / std_value)
+            
+            if z_score > threshold:
+                return ValidationResult(
+                    record_id=record_id,
+                    timestamp=datetime.utcnow(),
+                    rule_id=rule.rule_id,
+                    field_name=rule.field_name,
+                    severity=rule.severity,
+                    metric=DataQualityMetric.VALIDITY,
+                    is_valid=False,
+                    error_message=f"Z-score {z_score:.2f} exceeds threshold {threshold}",
+                    actual_value=str(numeric_value),
+                    expected_value=f"within {threshold} standard deviations"
+                )
+            
+        except (ValueError, TypeError):
+            return ValidationResult(
+                record_id=record_id,
+                timestamp=datetime.utcnow(),
+                rule_id=rule.rule_id,
+                field_name=rule.field_name,
+                severity=rule.severity,
+                metric=DataQualityMetric.VALIDITY,
+                is_valid=False,
+                error_message=f"Invalid numeric value: {value}",
+                actual_value=str(value),
+                expected_value="numeric value"
+            )
+        
+        return None
+    
+    def _validate_iqr(self, record_id: str, rule: ValidationRule, value, record: Dict) -> Optional[ValidationResult]:
+        """Validate using Interquartile Range (IQR) outlier detection"""
+        if value is None:
+            return None
+        
+        try:
+            numeric_value = float(value)
+            factor = rule.parameters.get("factor", 1.5)
+            
+            # Calculate IQR bounds (requires historical data)
+            q1 = self._get_historical_quartile(rule.field_name, 0.25)
+            q3 = self._get_historical_quartile(rule.field_name, 0.75)
+            
+            if q1 is None or q3 is None:
+                return None  # Not enough data for IQR calculation
+            
+            iqr = q3 - q1
+            lower_bound = q1 - factor * iqr
+            upper_bound = q3 + factor * iqr
+            
+            if numeric_value < lower_bound or numeric_value > upper_bound:
+                return ValidationResult(
+                    record_id=record_id,
+                    timestamp=datetime.utcnow(),
+                    rule_id=rule.rule_id,
+                    field_name=rule.field_name,
+                    severity=rule.severity,
+                    metric=DataQualityMetric.VALIDITY,
+                    is_valid=False,
+                    error_message=f"Value {numeric_value:.2f} outside IQR bounds [{lower_bound:.2f}, {upper_bound:.2f}]",
+                    actual_value=str(numeric_value),
+                    expected_value=f"[{lower_bound:.2f}, {upper_bound:.2f}]"
+                )
+            
+        except (ValueError, TypeError):
+            return ValidationResult(
+                record_id=record_id,
+                timestamp=datetime.utcnow(),
+                rule_id=rule.rule_id,
+                field_name=rule.field_name,
+                severity=rule.severity,
+                metric=DataQualityMetric.VALIDITY,
+                is_valid=False,
+                error_message=f"Invalid numeric value: {value}",
+                actual_value=str(value),
+                expected_value="numeric value"
+            )
+        
+        return None
+    
+    def _validate_physical_consistency(
+        self,
+        record_id: str,
+        rule: ValidationRule,
+        value,
+        record: Dict
+    ) -> Optional[ValidationResult]:
+        """Validate physical consistency between related fields (FR-201)"""
+        if value is None:
+            return None
+        
+        try:
+            numeric_value = float(value)
+            related_field = rule.parameters.get("related_field")
+            relation = rule.parameters.get("relation", "linear")
+            
+            if related_field not in record:
+                return None  # Related field not available
+            
+            related_value = float(record[related_field])
+            
+            is_valid = True
+            error_msg = None
+            
+            if relation == "linear":
+                # Linear relationship: y = a * x + b
+                min_gradient = rule.parameters.get("min_gradient", 0.0)
+                max_gradient = rule.parameters.get("max_gradient", float('inf'))
+                
+                if related_value > 0:
+                    gradient = numeric_value / related_value
+                    if gradient < min_gradient or gradient > max_gradient:
+                        is_valid = False
+                        error_msg = f"Gradient {gradient:.3f} outside acceptable range [{min_gradient}, {max_gradient}]"
+            
+            elif relation == "correlation":
+                # Correlation check (requires historical data)
+                min_correlation = rule.parameters.get("min_correlation", 0.5)
+                correlation = self._get_historical_correlation(rule.field_name, related_field)
+                
+                if correlation is not None and abs(correlation) < min_correlation:
+                    is_valid = False
+                    error_msg = f"Correlation {correlation:.3f} below minimum {min_correlation}"
+            
+            elif relation == "quadratic":
+                # Quadratic relationship: y = a * x^2 + b
+                min_coefficient = rule.parameters.get("min_coefficient", 0.0)
+                
+                if related_value > 0:
+                    coefficient = numeric_value / (related_value ** 2)
+                    if coefficient < min_coefficient:
+                        is_valid = False
+                        error_msg = f"Coefficient {coefficient:.6f} below minimum {min_coefficient}"
+            
+            if not is_valid:
+                return ValidationResult(
+                    record_id=record_id,
+                    timestamp=datetime.utcnow(),
+                    rule_id=rule.rule_id,
+                    field_name=rule.field_name,
+                    severity=rule.severity,
+                    metric=DataQualityMetric.CONSISTENCY,
+                    is_valid=False,
+                    error_message=error_msg,
+                    actual_value=str(numeric_value),
+                    expected_value=f"physically consistent with {related_field}"
+                )
+            
+        except (ValueError, TypeError, KeyError) as e:
+            return ValidationResult(
+                record_id=record_id,
+                timestamp=datetime.utcnow(),
+                rule_id=rule.rule_id,
+                field_name=rule.field_name,
+                severity=rule.severity,
+                metric=DataQualityMetric.VALIDITY,
+                is_valid=False,
+                error_message=f"Physical consistency check error: {str(e)}",
+                actual_value=str(value),
+                expected_value="physically consistent value"
+            )
+        
+        return None
+    
+    def _get_historical_mean(self, field_name: str) -> Optional[float]:
+        """Get historical mean value (simplified - in production uses Flink state)"""
+        # This would use Flink's state management to maintain running statistics
+        # For now, return None (indicating not enough data)
+        return None
+    
+    def _get_historical_std(self, field_name: str) -> Optional[float]:
+        """Get historical standard deviation (simplified)"""
+        # This would use Flink's state management
+        return None
+    
+    def _get_historical_quartile(self, field_name: str, quartile: float) -> Optional[float]:
+        """Get historical quartile value (simplified)"""
+        # This would use Flink's state management
+        return None
+    
+    def _get_historical_correlation(self, field1: str, field2: str) -> Optional[float]:
+        """Get historical correlation between two fields (simplified)"""
+        # This would use Flink's state management
         return None
 
 class DataValidationMapFunction(MapFunction):

@@ -33,6 +33,9 @@ import os
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.responses import Response
 
+# Digital Twin for validation
+from digital_twin import DigitalTwinSimulator, ValidationStatus
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -365,6 +368,9 @@ app.add_middleware(
 # Global optimizer instance
 optimizer = RTOOptimizer()
 
+# Digital Twin simulator for validation
+digital_twin: Optional[DigitalTwinSimulator] = None
+
 # Database connection for persistent storage
 postgres_pool: Optional[asyncpg.Pool] = None
 
@@ -392,6 +398,16 @@ async def setup_database():
         logger.info("PostgreSQL connection pool created")
     except Exception as e:
         logger.error(f"Failed to setup PostgreSQL: {e}")
+
+async def setup_digital_twin():
+    """Setup Digital Twin simulator"""
+    global digital_twin
+    
+    try:
+        digital_twin = DigitalTwinSimulator()
+        logger.info("Digital Twin simulator initialized")
+    except Exception as e:
+        logger.error(f"Failed to setup Digital Twin: {e}")
 
 async def setup_kafka():
     """Setup Kafka connections"""
@@ -444,14 +460,64 @@ async def generate_rto_recommendation(
     damage_probability: float,
     current_params: DrillingParameters
 ):
-    """Generate RTO recommendation for a well"""
+    """Generate RTO recommendation for a well with Digital Twin validation"""
     try:
+        # Run optimization
         optimization_result = optimizer.optimize(
             current_params,
             damage_type,
             damage_probability,
             well_id
         )
+        
+        # Validate with Digital Twin (FR-401)
+        validation_status = "pending"
+        validation_message = ""
+        
+        if digital_twin:
+            try:
+                # Initialize digital twin with current state
+                current_state_dict = {
+                    'weight_on_bit': current_params.weight_on_bit,
+                    'rotary_speed': current_params.rotary_speed,
+                    'flow_rate': current_params.flow_rate,
+                    'mud_weight': current_params.mud_weight,
+                    'depth': current_params.depth
+                }
+                
+                digital_twin.initialize_state(current_state_dict)
+                
+                # Validate recommended parameters
+                recommendation_id = f"rto_{well_id}_{datetime.now().timestamp()}"
+                validation_result = digital_twin.validate_recommendation(
+                    recommendation_id=recommendation_id,
+                    recommended_params=optimization_result['recommended_values'],
+                    damage_type=damage_type.value
+                )
+                
+                # Update optimization result based on validation
+                if validation_result.status == ValidationStatus.UNSAFE:
+                    validation_status = "unsafe"
+                    validation_message = "Digital Twin validation failed: Unsafe to implement"
+                    logger.warning(f"RTO recommendation {recommendation_id} failed Digital Twin validation")
+                elif validation_result.status == ValidationStatus.WARNING:
+                    validation_status = "warning"
+                    validation_message = f"Digital Twin validation warning: {', '.join(validation_result.modification_suggestions)}"
+                    logger.info(f"RTO recommendation {recommendation_id} has Digital Twin warnings")
+                else:
+                    validation_status = "safe"
+                    validation_message = "Digital Twin validation passed"
+                    
+                    # Update risk reduction based on simulation
+                    if validation_result.risk_change < 0:
+                        optimization_result['risk_reduction'] = abs(validation_result.risk_change)
+                    
+                    logger.info(f"RTO recommendation {recommendation_id} passed Digital Twin validation")
+                
+            except Exception as e:
+                logger.error(f"Digital Twin validation error: {e}")
+                validation_status = "validation_error"
+                validation_message = f"Digital Twin validation failed: {str(e)}"
         
         recommendation = RTORecovery(
             id=f"rto_{well_id}_{datetime.now().timestamp()}",
@@ -470,15 +536,22 @@ async def generate_rto_recommendation(
             computation_time_ms=optimization_result['computation_time_ms']
         )
         
+        # Add validation info to constraint violations if validation failed
+        if validation_status in ["unsafe", "validation_error"]:
+            recommendation.constraint_violations.append(validation_message)
+        
         # Store recommendation in database (persistent storage)
         await store_recommendation(recommendation)
         
         # Publish to Kafka
         if kafka_producer:
-            kafka_producer.send('rto-recommendations', value=recommendation.dict())
+            recommendation_dict = recommendation.dict()
+            recommendation_dict['validation_status'] = validation_status
+            recommendation_dict['validation_message'] = validation_message
+            kafka_producer.send('rto-recommendations', value=recommendation_dict)
         
         rto_recommendations.inc()
-        logger.info(f"Generated RTO recommendation {recommendation.id} for {well_id}")
+        logger.info(f"Generated RTO recommendation {recommendation.id} for {well_id} (validation: {validation_status})")
         
     except Exception as e:
         logger.error(f"Error generating RTO recommendation: {e}")
@@ -568,6 +641,7 @@ async def startup_event():
     """Startup tasks"""
     await setup_database()
     await setup_kafka()
+    await setup_digital_twin()
     # Start background task for processing predictions
     asyncio.create_task(process_damage_predictions())
 

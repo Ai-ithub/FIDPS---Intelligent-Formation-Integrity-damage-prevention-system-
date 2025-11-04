@@ -68,3 +68,9 @@ click==8.1.7
 # Anomaly Detection Specialized
 pyod==1.1.3
 
+# MLflow for MLOps
+mlflow>=2.8.0
+
+# Causal Inference (optional - DoWhy)
+# dowhy>=0.11.0  # Uncomment if needed
+

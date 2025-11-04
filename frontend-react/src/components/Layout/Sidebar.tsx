@@ -1,29 +1,32 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  Package,
-  AlertTriangle,
-  Beaker,
-  Settings,
-  CheckCircle,
   Gauge,
-  Activity,
+  Droplets,
+  Wrench,
+  AlertTriangle,
+  Database,
+  Settings,
+  Package,
+  CheckCircle,
 } from 'lucide-react'
 
 const Sidebar = () => {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/wells', icon: Package, label: 'Wells' },
-    { path: '/realtime-monitoring', icon: Activity, label: 'Real-Time Monitoring' },
+    { path: '/kpis', icon: Gauge, label: 'Critical KPIs' },
+    { path: '/mud-parameters', icon: Droplets, label: 'Mud Parameters' },
+    { path: '/drilling-formation', icon: Wrench, label: 'Drilling & Formation' },
+    { path: '/wells', icon: Package, label: 'Wells Management' },
     { path: '/anomalies', icon: AlertTriangle, label: 'Anomalies' },
-    { path: '/damage-diagnostics', icon: Beaker, label: 'Damage Diagnostics' },
-    { path: '/rto-control', icon: Gauge, label: 'RTO Control' },
+    { path: '/alerts', icon: AlertTriangle, label: 'Alerts' },
+    { path: '/data', icon: Database, label: 'Data' },
     { path: '/data-quality', icon: CheckCircle, label: 'Data Quality' },
     { path: '/system', icon: Settings, label: 'System' },
   ]
 
   return (
-    <aside className="fixed left-0 top-20 h-[calc(100vh-5rem)] w-64 bg-white border-r border-gray-200 shadow-sm">
+    <aside className="fixed left-0 top-20 h-[calc(100vh-5rem)] w-64 bg-white border-r border-gray-200 shadow-sm z-10">
       <nav className="p-4">
         <ul className="space-y-2">
           {navItems.map((item) => {

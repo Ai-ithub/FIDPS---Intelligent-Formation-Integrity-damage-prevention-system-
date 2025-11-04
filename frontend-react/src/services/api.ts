@@ -25,8 +25,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.detail || error.message || 'An error occurred'
-    toast.error(message)
+    // Only show toast for non-network errors (e.g., validation errors)
+    // Network errors (API not available) are handled silently in components
+    if (error.response && error.response.status >= 400 && error.response.status < 500) {
+      const message = error.response?.data?.detail || error.message || 'An error occurred'
+      toast.error(message)
+    }
+    // For network errors (ECONNREFUSED, timeout, etc.), don't show toast
+    // Components will handle these gracefully with mock data
     return Promise.reject(error)
   }
 )
