@@ -6,34 +6,61 @@
     <title>FIDPS - Complete Dashboard Demo</title>
     <!-- Chart.js - Using local file with CDN fallback for offline support -->
     <script>
+        // Register a callback queue to ensure dashboard renders once Chart.js is ready
+        window.__fidpsReadyCallbacks = [];
+        window.__onFidpsChartsReady = function(cb) {
+            if (window.__fidpsChartsLoaded) {
+                cb();
+            } else {
+                window.__fidpsReadyCallbacks.push(cb);
+            }
+        };
+
+        function __fidpsMarkChartsReady() {
+            window.__fidpsChartsLoaded = true;
+            while (window.__fidpsReadyCallbacks.length) {
+                var callback = window.__fidpsReadyCallbacks.shift();
+                try {
+                    callback();
+                } catch (err) {
+                    console.error('FIDPS callback error:', err);
+                }
+            }
+        }
+
         // Try to load Chart.js from local file first, then fallback to CDN
-        (function() {
+        (function loadChartsScript() {
             var script = document.createElement('script');
-            
             // First try local file (for offline mode)
             script.src = './chart.umd.min.js';
-            
+
+            script.onload = function() {
+                console.log('Chart.js loaded from local file (offline mode)');
+                __fidpsMarkChartsReady();
+            };
+
             script.onerror = function() {
                 console.warn('Local Chart.js not found, trying CDN...');
                 // Fallback to CDN if local file doesn't exist
                 var cdnScript = document.createElement('script');
                 cdnScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                cdnScript.onload = function() {
+                    console.log('Chart.js loaded from CDN');
+                    __fidpsMarkChartsReady();
+                };
                 cdnScript.onerror = function() {
                     console.error('Chart.js CDN also failed. Please download chart.umd.min.js to the same folder as this HTML file for offline use.');
                     // Create a minimal Chart.js-like object for basic functionality
                     window.Chart = function(ctx) {
-                        this.canvas = ctx.canvas;
+                        this.canvas = ctx && ctx.canvas;
                         this.update = function() {};
                         return this;
                     };
+                    __fidpsMarkChartsReady();
                 };
                 document.head.appendChild(cdnScript);
             };
-            
-            script.onload = function() {
-                console.log('Chart.js loaded from local file (offline mode)');
-            };
-            
+
             document.head.appendChild(script);
         })();
     </script>
@@ -562,82 +589,87 @@
     </div>
 
     <script>
-        // Pressure Window Chart
-        const pressureCtx = document.getElementById('pressureWindowChart').getContext('2d');
-        const tvd = Array.from({length: 50}, (_, i) => 1000 + i * 100);
-        const porePressure = Array.from({length: 50}, (_, i) => 8.5 + (i * 0.02));
-        const fractureGradient = Array.from({length: 50}, (_, i) => 12.5 + (i * 0.02));
-        const currentECD = 10.2;
-        const currentDepth = 5000;
-        const depthIndex = tvd.findIndex(d => d >= currentDepth) || 25;
-        
-        new Chart(pressureCtx, {
-            type: 'line',
-            data: {
-                labels: tvd.map(d => `${d} ft`),
-                datasets: [{
-                    label: 'Pore Pressure',
-                    data: porePressure,
-                    borderColor: 'rgb(34, 197, 94)',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    fill: false
-                }, {
-                    label: 'Fracture Gradient',
-                    data: fractureGradient,
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    fill: false
-                }, {
-                    label: 'Current ECD',
-                    data: Array(50).fill(null).map((_, i) => i === depthIndex ? currentECD : null),
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgb(59, 130, 246)',
-                    borderWidth: 3,
-                    pointRadius: 8,
-                    pointHoverRadius: 10,
-                    showLine: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top' },
-                    title: {
-                        display: true,
-                        text: 'Pressure Window Chart (The Money Plot)',
-                        font: { size: 16, weight: 'bold' }
-                    }
+        let pressureChart;
+        let torqueChart;
+        let lwdChart;
+
+        function renderPressureWindowChart() {
+            const pressureCtx = document.getElementById('pressureWindowChart').getContext('2d');
+            const tvd = Array.from({length: 50}, (_, i) => 1000 + i * 100);
+            const porePressure = Array.from({length: 50}, (_, i) => 8.5 + (i * 0.02));
+            const fractureGradient = Array.from({length: 50}, (_, i) => 12.5 + (i * 0.02));
+            const currentECD = 10.2;
+            const currentDepth = 5000;
+            const depthIndex = tvd.findIndex(d => d >= currentDepth);
+
+            return new Chart(pressureCtx, {
+                type: 'line',
+                data: {
+                    labels: tvd.map(function(d) { return d + ' ft'; }),
+                    datasets: [{
+                        label: 'Pore Pressure',
+                        data: porePressure,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }, {
+                        label: 'Fracture Gradient',
+                        data: fractureGradient,
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }, {
+                        label: 'Current ECD',
+                        data: Array(50).fill(null).map(function(_, i) { return i === (depthIndex === -1 ? 25 : depthIndex) ? currentECD : null; }),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgb(59, 130, 246)',
+                        borderWidth: 3,
+                        pointRadius: 8,
+                        pointHoverRadius: 10,
+                        showLine: false
+                    }]
                 },
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Depth (TVD - ft)', font: { size: 12, weight: 'bold' } },
-                        reverse: true
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: {
+                            display: true,
+                            text: 'Pressure Window Chart (The Money Plot)',
+                            font: { size: 16, weight: 'bold' }
+                        }
                     },
-                    y: {
-                        title: { display: true, text: 'Pressure (EMW - ppg)', font: { size: 12, weight: 'bold' } },
-                        min: 8,
-                        max: 13
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Depth (TVD - ft)', font: { size: 12, weight: 'bold' } },
+                            reverse: true
+                        },
+                        y: {
+                            title: { display: true, text: 'Pressure (EMW - ppg)', font: { size: 12, weight: 'bold' } },
+                            min: 8,
+                            max: 13
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // Differential Pressure Gauge
-        function drawDeltaPGauge() {
+        function drawDeltaPGauge(deltaOverride) {
             const svg = document.getElementById('deltaPGauge');
             svg.innerHTML = '';
-            
-            const deltaP = 120;
+
+            const deltaP = typeof deltaOverride === 'number' ? deltaOverride : 120;
             const minValue = -50;
             const maxValue = 250;
             const percentage = ((deltaP - minValue) / (maxValue - minValue)) * 100;
             const angle = (percentage / 100) * 180 - 90;
-                    
+
             // Background arc
             const bgArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             bgArc.setAttribute('d', 'M 20 100 A 80 80 0 0 1 180 100');
@@ -690,102 +722,111 @@
             circle.setAttribute('r', '8');
             circle.setAttribute('fill', '#22c55e');
             svg.appendChild(circle);
+
+            document.getElementById('deltaPValue').textContent = deltaP.toFixed(1);
         }
-        drawDeltaPGauge();
 
-        // Torque & Drag Chart
-        const torqueCtx = document.getElementById('torqueDragChart').getContext('2d');
-        const torqueData = Array.from({length: 30}, (_, i) => 8000 + Math.random() * 1000);
-        const dragData = Array.from({length: 30}, (_, i) => 15000 + Math.random() * 2000);
-        
-        new Chart(torqueCtx, {
-            type: 'line',
-            data: {
-                labels: Array.from({length: 30}, (_, i) => `T-${i + 1}`),
-                datasets: [{
-                    label: 'Torque',
-                    data: torqueData,
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    yAxisID: 'y'
-                }, {
-                    label: 'Drag',
-                    data: dragData,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    yAxisID: 'y1'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Torque (ft-lb)' } },
-                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Drag (lb)' }, grid: { drawOnChartArea: false } }
+        function renderTorqueDragChart() {
+            const torqueCtx = document.getElementById('torqueDragChart').getContext('2d');
+            const torqueData = Array.from({length: 30}, function(_, i) { return 8000 + Math.random() * 1000; });
+            const dragData = Array.from({length: 30}, function(_, i) { return 15000 + Math.random() * 2000; });
+
+            return new Chart(torqueCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 30}, function(_, i) { return 'T-' + (i + 1); }),
+                    datasets: [{
+                        label: 'Torque',
+                        data: torqueData,
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Drag',
+                        data: dragData,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Torque (ft-lb)' } },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Drag (lb)' }, grid: { drawOnChartArea: false } }
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        // LWD Chart
-        const lwdCtx = document.getElementById('lwdChart').getContext('2d');
-        const depth = Array.from({length: 50}, (_, i) => 5000 + i * 10);
-        const gammaRay = Array.from({length: 50}, (_, i) => 40 + Math.sin(i / 5) * 20);
-        const shallowResistivity = Array.from({length: 50}, (_, i) => 2 + Math.random() * 3);
-        const deepResistivity = Array.from({length: 50}, (_, i) => 2.5 + Math.random() * 4);
-        
-        new Chart(lwdCtx, {
-            type: 'line',
-            data: {
-                labels: depth.map(d => `${d} ft`),
-                datasets: [{
-                    label: 'Gamma Ray',
-                    data: gammaRay,
-                    borderColor: 'rgb(34, 197, 94)',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    yAxisID: 'y'
-                }, {
-                    label: 'Resistivity (Shallow)',
-                    data: shallowResistivity,
-                    borderColor: 'rgb(234, 179, 8)',
-                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    yAxisID: 'y1'
-                }, {
-                    label: 'Resistivity (Deep)',
-                    data: deepResistivity,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    yAxisID: 'y1'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    x: { title: { display: true, text: 'Depth (ft)' }, reverse: true },
-                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Gamma Ray (API)' } },
-                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Resistivity (ohm-m)' }, grid: { drawOnChartArea: false } }
+        function renderLwdChart() {
+            const lwdCtx = document.getElementById('lwdChart').getContext('2d');
+            const depth = Array.from({length: 50}, function(_, i) { return 5000 + i * 10; });
+            const gammaRay = Array.from({length: 50}, function(_, i) { return 40 + Math.sin(i / 5) * 20; });
+            const shallowResistivity = Array.from({length: 50}, function(_, i) { return 2 + Math.random() * 3; });
+            const deepResistivity = Array.from({length: 50}, function(_, i) { return 2.5 + Math.random() * 4; });
+
+            return new Chart(lwdCtx, {
+                type: 'line',
+                data: {
+                    labels: depth.map(function(d) { return d + ' ft'; }),
+                    datasets: [{
+                        label: 'Gamma Ray',
+                        data: gammaRay,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Resistivity (Shallow)',
+                        data: shallowResistivity,
+                        borderColor: 'rgb(234, 179, 8)',
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }, {
+                        label: 'Resistivity (Deep)',
+                        data: deepResistivity,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { title: { display: true, text: 'Depth (ft)' }, reverse: true },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Gamma Ray (API)' } },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Resistivity (ohm-m)' }, grid: { drawOnChartArea: false } }
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        // Simulate real-time updates
-        setInterval(() => {
-            const newDeltaP = 120 + (Math.random() - 0.5) * 10;
-            document.getElementById('deltaPValue').textContent = newDeltaP.toFixed(1);
-            drawDeltaPGauge();
-        }, 3000);
+        function initializeOfflineDashboard() {
+            pressureChart = renderPressureWindowChart();
+            torqueChart = renderTorqueDragChart();
+            lwdChart = renderLwdChart();
+            drawDeltaPGauge(120);
+
+            // Simulate real-time updates
+            setInterval(function() {
+                var newDeltaP = 120 + (Math.random() - 0.5) * 10;
+                drawDeltaPGauge(newDeltaP);
+            }, 3000);
+        }
 
         // Save Dashboard Function
         function saveDashboard() {
@@ -861,6 +902,10 @@
             if (saved) {
                 console.log('Previous dashboard backup found in localStorage');
             }
+
+            window.__onFidpsChartsReady(function() {
+                initializeOfflineDashboard();
+            });
         });
     </script>
 </body>
